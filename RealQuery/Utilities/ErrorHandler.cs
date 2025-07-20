@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace RealQuery.Utilities
 {
-  internal class ErrorHandle
+  internal class ErrorHandler
   {
   }
 }
