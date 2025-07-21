@@ -2,17 +2,31 @@
   x:Class="RealQuery.App"
   xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
   xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+  xmlns:converters="clr-namespace:RealQuery.Converters"
   xmlns:hc="https://handyorg.github.io/handycontrol"
   xmlns:local="clr-namespace:RealQuery"
   StartupUri="Views/Windows/MainWindow.xaml">
+
   <Application.Resources>
     <ResourceDictionary>
       <ResourceDictionary.MergedDictionaries>
+        <!--  HandyControl Theme  -->
         <hc:Theme AccentColor="#fb2c36" Skin="Dark" />
 
+        <!--  Custom Resources  -->
         <ResourceDictionary Source="/Resources/Styles.xaml" />
         <ResourceDictionary Source="/Resources/Icons.xaml" />
       </ResourceDictionary.MergedDictionaries>
+
+      <!--  Global Converters  -->
+      <converters:InverseBooleanConverter x:Key="InverseBooleanConverter" />
+      <converters:ObjectToVisibilityConverter x:Key="ObjectToVisibilityConverter" />
+      <converters:TimeSpanToStringConverter x:Key="TimeSpanToStringConverter" />
+      <converters:StepStatusToColorConverter x:Key="StepStatusToColorConverter" />
+
+      <!--  HandyControl Built-in Converters (if not available, we'll use ours)  -->
+      <converters:InverseBooleanConverter x:Key="Boolean2BooleanReConverter" />
+
     </ResourceDictionary>
   </Application.Resources>
 </Application>

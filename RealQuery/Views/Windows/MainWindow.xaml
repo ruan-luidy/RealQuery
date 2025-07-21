@@ -6,6 +6,7 @@
   xmlns:hc="https://handyorg.github.io/handycontrol"
   xmlns:local="clr-namespace:RealQuery.Views.Windows"
   xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+  xmlns:viewmodels="clr-namespace:RealQuery.ViewModels"
   Title="RealQuery - Visual ETL Tool"
   Width="1400"
   Height="900"
@@ -13,30 +14,43 @@
   MinHeight="600"
   mc:Ignorable="d">
 
+  <hc:Window.DataContext>
+    <viewmodels:MainViewModel />
+  </hc:Window.DataContext>
+
   <hc:Window.NonClientAreaContent>
     <Grid>
       <!--  Toolbar no NonClientArea para visual mais moderno  -->
       <StackPanel Margin="10,0,0,0" Orientation="Horizontal">
         <Button
           Margin="5,0"
+          Command="{Binding ImportDataCommand}"
           Content="Import"
+          IsEnabled="{Binding IsProcessing, Converter={StaticResource Boolean2BooleanReConverter}}"
           Style="{StaticResource ButtonPrimary}" />
         <Button
           Margin="5,0"
+          Command="{Binding ExportDataCommand}"
           Content="Export"
+          IsEnabled="{Binding IsProcessing, Converter={StaticResource Boolean2BooleanReConverter}}"
           Style="{StaticResource ButtonDefault}" />
         <Separator />
         <Button
           Margin="5,0"
+          Command="{Binding ExecuteCodeCommand}"
           Content="Execute"
+          IsEnabled="{Binding IsProcessing, Converter={StaticResource Boolean2BooleanReConverter}}"
           Style="{StaticResource ButtonSuccess}" />
         <Button
           Margin="5,0"
+          Command="{Binding ClearAllCommand}"
           Content="Clear"
+          IsEnabled="{Binding IsProcessing, Converter={StaticResource Boolean2BooleanReConverter}}"
           Style="{StaticResource ButtonWarning}" />
         <Separator />
         <Button
           Margin="5,0"
+          Command="{Binding SaveWorkspaceCommand}"
           Content="Save"
           Style="{StaticResource ButtonInfo}" />
       </StackPanel>
@@ -50,6 +64,12 @@
       <RowDefinition Height="Auto" />
       <!--  StatusBar  -->
     </Grid.RowDefinitions>
+
+    <!--  Loading Overlay  -->
+    <hc:LoadingCircle
+      Grid.RowSpan="2"
+      Panel.ZIndex="999"
+      Visibility="{Binding IsProcessing, Converter={StaticResource Boolean2VisibilityConverter}}" />
 
     <!--  Main Content Area  -->
     <Grid Grid.Row="0">
@@ -76,33 +96,56 @@
             DockPanel.Dock="Top"
             Spacing="10">
             <TextBlock Style="{StaticResource TextBlockTitle}" Text="Transformation Steps" />
-            <Button Content="Clear All" Style="{StaticResource ButtonDanger}" />
+            <Button
+              Command="{Binding ClearStepsCommand}"
+              Content="Clear All"
+              Style="{StaticResource ButtonDanger}" />
           </hc:UniformSpacingPanel>
 
-          <ListBox x:Name="StepsListBox" Margin="10">
-            <!--  Placeholder items  -->
-            <ListBoxItem>
-              <hc:Card>
-                <StackPanel>
-                  <TextBlock FontWeight="Bold" Text="1. Import Excel" />
-                  <TextBlock
-                    FontSize="11"
-                    Foreground="Gray"
-                    Text="Data loaded: 1,234 rows" />
-                </StackPanel>
-              </hc:Card>
-            </ListBoxItem>
-            <ListBoxItem>
-              <hc:Card>
-                <StackPanel>
-                  <TextBlock FontWeight="Bold" Text="2. Filter Rows" />
-                  <TextBlock
-                    FontSize="11"
-                    Foreground="Gray"
-                    Text="Applied filter: Age &gt; 18" />
-                </StackPanel>
-              </hc:Card>
-            </ListBoxItem>
+          <ListBox
+            Margin="10"
+            ItemsSource="{Binding TransformationSteps}"
+            SelectedItem="{Binding SelectedStep}">
+            <ListBox.ItemTemplate>
+              <DataTemplate>
+                <hc:Card>
+                  <StackPanel>
+                    <StackPanel Orientation="Horizontal">
+                      <TextBlock FontWeight="Bold" Text="{Binding StepNumber, StringFormat='{}{0}. '}" />
+                      <TextBlock FontWeight="Bold" Text="{Binding Title}" />
+                      <TextBlock
+                        Margin="5,0"
+                        FontSize="12"
+                        Text="{Binding StatusIcon}" />
+                    </StackPanel>
+                    <TextBlock
+                      FontSize="11"
+                      Foreground="Gray"
+                      Text="{Binding Description}"
+                      TextWrapping="Wrap" />
+                    <StackPanel Margin="0,2,0,0" Orientation="Horizontal">
+                      <TextBlock
+                        FontSize="10"
+                        Foreground="Gray"
+                        Text="{Binding ExecutionTime, StringFormat='Time: {0:mm\\:ss\\.fff}'}"
+                        Visibility="{Binding ExecutionTime, Converter={StaticResource Object2VisibilityConverter}}" />
+                      <TextBlock
+                        Margin="10,0,0,0"
+                        FontSize="10"
+                        Foreground="Gray"
+                        Text="{Binding OutputRowCount, StringFormat='Rows: {0:N0}'}"
+                        Visibility="{Binding OutputRowCount, Converter={StaticResource Object2VisibilityConverter}}" />
+                    </StackPanel>
+                    <TextBlock
+                      FontSize="10"
+                      Foreground="Red"
+                      Text="{Binding ErrorMessage}"
+                      TextWrapping="Wrap"
+                      Visibility="{Binding HasError, Converter={StaticResource Boolean2VisibilityConverter}}" />
+                  </StackPanel>
+                </hc:Card>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
           </ListBox>
         </DockPanel>
       </hc:Card>
@@ -139,12 +182,17 @@
               <TextBlock
                 VerticalAlignment="Center"
                 FontSize="12"
-                Foreground="Gray"
-                Text="1,234 rows × 5 columns" />
+                Foreground="Gray">
+                <TextBlock.Text>
+                  <MultiBinding StringFormat="{}{0:N0} rows × {1} columns">
+                    <Binding Path="RowCount" />
+                    <Binding Path="ColumnCount" />
+                  </MultiBinding>
+                </TextBlock.Text>
+              </TextBlock>
             </hc:UniformSpacingPanel>
 
             <DataGrid
-              x:Name="DataPreviewGrid"
               Margin="10"
               AutoGenerateColumns="True"
               CanUserAddRows="False"
@@ -152,10 +200,9 @@
               GridLinesVisibility="Vertical"
               HeadersVisibility="Column"
               IsReadOnly="True"
+              ItemsSource="{Binding CurrentData.DefaultView}"
               Style="{StaticResource DataGrid.Small}"
-              VerticalGridLinesBrush="{DynamicResource SecondaryRegionBrush}">
-              <!--  Placeholder data será adicionado via código  -->
-            </DataGrid>
+              VerticalGridLinesBrush="{DynamicResource SecondaryRegionBrush}" />
           </DockPanel>
         </hc:Card>
 
@@ -178,7 +225,11 @@
               DockPanel.Dock="Top"
               Spacing="10">
               <TextBlock Style="{StaticResource TextBlockTitle}" Text="C# Code Editor" />
-              <Button Content="Execute" Style="{StaticResource ButtonSuccess}" />
+              <Button
+                Command="{Binding ExecuteCodeCommand}"
+                Content="Execute"
+                IsEnabled="{Binding IsProcessing, Converter={StaticResource Boolean2BooleanReConverter}}"
+                Style="{StaticResource ButtonSuccess}" />
               <Button Content="Templates" Style="{StaticResource ButtonInfo}" />
             </hc:UniformSpacingPanel>
 
@@ -190,13 +241,12 @@
               BorderThickness="1"
               CornerRadius="3">
               <TextBox
-                x:Name="CodeEditorPlaceholder"
                 AcceptsReturn="True"
                 AcceptsTab="True"
                 FontFamily="Consolas"
                 FontSize="14"
                 HorizontalScrollBarVisibility="Auto"
-                Text="// Write your C# transformation code here&#x0A;// Example:&#x0A;data = data.Where(row =&gt; row[&quot;Age&quot;] &gt; 18);"
+                Text="{Binding CSharpCode, UpdateSourceTrigger=PropertyChanged}"
                 VerticalScrollBarVisibility="Auto" />
             </Border>
           </DockPanel>
@@ -207,18 +257,18 @@
     <!--  StatusBar  -->
     <StatusBar Grid.Row="1">
       <StatusBarItem>
-        <TextBlock Text="Ready" />
+        <TextBlock Text="{Binding StatusMessage}" />
       </StatusBarItem>
       <Separator />
       <StatusBarItem>
-        <TextBlock x:Name="StatusRowCount" Text="Rows: 1,234" />
+        <TextBlock Text="{Binding RowCount, StringFormat='Rows: {0:N0}'}" />
       </StatusBarItem>
       <StatusBarItem>
-        <TextBlock x:Name="StatusColumnCount" Text="Columns: 5" />
+        <TextBlock Text="{Binding ColumnCount, StringFormat='Columns: {0}'}" />
       </StatusBarItem>
       <Separator />
       <StatusBarItem>
-        <TextBlock x:Name="StatusExecutionTime" Text="Last execution: 0.2s" />
+        <TextBlock Text="{Binding LastExecutionTime, StringFormat='Last execution: {0}'}" />
       </StatusBarItem>
     </StatusBar>
   </Grid>
