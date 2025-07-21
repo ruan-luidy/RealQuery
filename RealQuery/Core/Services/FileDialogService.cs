@@ -80,7 +80,7 @@ public class FileDialogService
   /// <summary>
   /// Obtém filtro padrão para importação
   /// </summary>
-  private string GetDefaultImportFilter()
+  public string GetDefaultImportFilter()
   {
     return "Todos os formatos suportados|*.xlsx;*.xls;*.xlsm;*.csv;*.txt|" +
            "Arquivos Excel|*.xlsx;*.xls;*.xlsm|" +
@@ -92,7 +92,7 @@ public class FileDialogService
   /// <summary>
   /// Obtém filtro padrão para exportação
   /// </summary>
-  private string GetDefaultExportFilter()
+  public string GetDefaultExportFilter()
   {
     return "Excel Workbook|*.xlsx|" +
            "Excel 97-2003|*.xls|" +
