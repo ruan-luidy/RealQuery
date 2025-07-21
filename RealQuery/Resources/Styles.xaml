@@ -1,0 +1,36 @@
+﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!--  HandyControls-inspired GridSplitter Style  -->
+  <Style x:Key="GridSplitter.Handy" TargetType="GridSplitter">
+    <Setter Property="Background" Value="{DynamicResource DarkOpacityBrush}" />
+    <Setter Property="SnapsToDevicePixels" Value="True" />
+    <Setter Property="Focusable" Value="False" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="GridSplitter">
+          <Border
+            x:Name="Border"
+            Background="{TemplateBinding Background}"
+            BorderBrush="{DynamicResource PrimaryBrush}"
+            BorderThickness="0,0,0,0">
+            <ContentPresenter />
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsDragging" Value="True">
+              <Setter TargetName="Border" Property="Background" Value="{DynamicResource AccentBrush}" />
+            </Trigger>
+            <Trigger Property="HorizontalAlignment" Value="Stretch">
+              <Setter TargetName="Border" Property="MinHeight" Value="5" />
+              <Setter TargetName="Border" Property="MinWidth" Value="30" />
+            </Trigger>
+            <Trigger Property="VerticalAlignment" Value="Stretch">
+              <Setter TargetName="Border" Property="MinWidth" Value="5" />
+              <Setter TargetName="Border" Property="MinHeight" Value="30" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+</ResourceDictionary>

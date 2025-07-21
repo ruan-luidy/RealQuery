@@ -110,9 +110,9 @@
       <!--  GridSplitter  -->
       <GridSplitter
         Grid.Column="1"
-        Width="5"
         HorizontalAlignment="Center"
-        VerticalAlignment="Stretch" />
+        VerticalAlignment="Stretch"
+        Style="{StaticResource GridSplitter.Handy}" />
 
       <!--  Right Panel: Data Grid + Code Editor  -->
       <Grid Grid.Column="2">
@@ -164,7 +164,8 @@
           Grid.Row="1"
           Height="5"
           HorizontalAlignment="Stretch"
-          VerticalAlignment="Center" />
+          VerticalAlignment="Center"
+          Style="{StaticResource GridSplitter.Handy}" />
 
         <!--  Code Editor Area  -->
         <hc:Card

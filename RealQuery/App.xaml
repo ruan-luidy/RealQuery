@@ -9,6 +9,9 @@
     <ResourceDictionary>
       <ResourceDictionary.MergedDictionaries>
         <hc:Theme AccentColor="#fb2c36" Skin="Dark" />
+
+        <ResourceDictionary Source="/Resources/Styles.xaml" />
+        <ResourceDictionary Source="/Resources/Icons.xaml" />
       </ResourceDictionary.MergedDictionaries>
     </ResourceDictionary>
   </Application.Resources>
