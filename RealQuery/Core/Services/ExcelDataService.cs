@@ -43,8 +43,8 @@ public class ExcelDataService : IDataService
         if (worksheet == null)
           throw new InvalidOperationException("Nenhuma planilha encontrada no arquivo Excel.");
 
-        // Converter para DataTable
-        return ConvertWorksheetToDataTable(worksheet);
+        // Converter para DataTable usando método nativo do IronXL
+        return worksheet.ToDataTable(true); // true = primeira linha como headers
       }
       catch (Exception ex)
       {
@@ -79,8 +79,9 @@ public class ExcelDataService : IDataService
         // Escrever headers
         for (int col = 0; col < data.Columns.Count; col++)
         {
-          worksheet[$"A{1}"].Offset(0, col).Value = data.Columns[col].ColumnName;
-          worksheet[$"A{1}"].Offset(0, col).Style.Font.Bold = true;
+          var cell = worksheet[$"{GetColumnName(col)}1"];
+          cell.Value = data.Columns[col].ColumnName;
+          cell.Style.Font.Bold = true;
         }
 
         // Escrever dados
@@ -88,8 +89,9 @@ public class ExcelDataService : IDataService
         {
           for (int col = 0; col < data.Columns.Count; col++)
           {
+            var cell = worksheet[$"{GetColumnName(col)}{row + 2}"];
             var value = data.Rows[row][col];
-            worksheet[$"A{row + 2}"].Offset(0, col).Value = value?.ToString() ?? "";
+            cell.Value = value?.ToString() ?? "";
           }
         }
 
@@ -121,7 +123,7 @@ public class ExcelDataService : IDataService
         if (worksheet == null)
           throw new InvalidOperationException($"Planilha '{worksheetName}' não encontrada.");
 
-        return ConvertWorksheetToDataTable(worksheet);
+        return worksheet.ToDataTable(true);
       }
       catch (Exception ex)
       {
@@ -153,67 +155,6 @@ public class ExcelDataService : IDataService
   }
 
   /// <summary>
-  /// Converte uma WorkSheet do IronXL para DataTable
-  /// </summary>
-  private DataTable ConvertWorksheetToDataTable(WorkSheet worksheet)
-  {
-    var dataTable = new DataTable();
-
-    // Obter range de dados usando RangeAddressAsString
-    var range = worksheet.GetRange(worksheet.RangeAddressAsString);
-
-    if (range == null || range.Count == 0)
-      return dataTable;
-
-    // Detectar dimensões
-    var firstRow = range.FirstRow;
-    var lastRow = range.LastRow;
-    var firstColumn = range.FirstColumn;
-    var lastColumn = range.LastColumn;
-
-    // Criar colunas baseadas na primeira linha (headers)
-    for (int col = firstColumn; col <= lastColumn; col++)
-    {
-      var headerCell = worksheet[$"{GetColumnName(col)}{firstRow + 1}"];
-      var columnName = headerCell?.Value?.ToString() ?? $"Column{col + 1}";
-
-      // Garantir nomes únicos de colunas
-      var originalName = columnName;
-      var counter = 1;
-      while (dataTable.Columns.Contains(columnName))
-      {
-        columnName = $"{originalName}_{counter++}";
-      }
-
-      dataTable.Columns.Add(columnName);
-    }
-
-    // Adicionar dados (começando da segunda linha)
-    for (int row = firstRow + 1; row <= lastRow; row++)
-    {
-      var dataRow = dataTable.NewRow();
-      var hasData = false;
-
-      for (int col = firstColumn; col <= lastColumn; col++)
-      {
-        var cell = worksheet[$"{GetColumnName(col)}{row + 1}"];
-        var value = cell?.Value?.ToString() ?? "";
-
-        if (!string.IsNullOrEmpty(value))
-          hasData = true;
-
-        dataRow[col - firstColumn] = value;
-      }
-
-      // Só adicionar linha se tiver pelo menos um valor
-      if (hasData)
-        dataTable.Rows.Add(dataRow);
-    }
-
-    return dataTable;
-  }
-
-  /// <summary>
   /// Converte índice numérico de coluna para letra (0 = A, 1 = B, etc.)
   /// </summary>
   private string GetColumnName(int columnIndex)
@@ -242,12 +183,28 @@ public class ExcelDataService : IDataService
         var workbook = WorkBook.Load(filePath);
         var worksheets = workbook.WorkSheets.Select(ws =>
         {
-          var range = ws.GetRange(ws.RangeAddressAsString);
+          // Método simples para contar linhas e colunas usando ToDataTable
+          int rowCount = 0;
+          int colCount = 0;
+
+          try
+          {
+            var tempTable = ws.ToDataTable(true);
+            rowCount = tempTable.Rows.Count;
+            colCount = tempTable.Columns.Count;
+          }
+          catch
+          {
+            // Se falhar, usar valores padrão
+            rowCount = 0;
+            colCount = 0;
+          }
+
           return new WorksheetInfo
           {
             Name = ws.Name,
-            RowCount = range?.LastRow - range?.FirstRow + 1 ?? 0,
-            ColumnCount = range?.LastColumn - range?.FirstColumn + 1 ?? 0
+            RowCount = rowCount,
+            ColumnCount = colCount
           };
         }).ToArray();
 

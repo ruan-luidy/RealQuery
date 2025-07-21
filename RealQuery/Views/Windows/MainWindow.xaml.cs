@@ -289,15 +289,18 @@ public partial class MainWindow : HandyControl.Controls.Window
   /// </summary>
   private void UpdateStatus(string message)
   {
-    // Encontrar StatusBar no Grid
-    var mainGrid = this.Content as Grid;
-    if (mainGrid != null)
+    // Encontrar StatusBar no Grid principal da Window
+    if (this.Content is Grid mainGrid)
     {
       var statusBar = mainGrid.Children.OfType<System.Windows.Controls.Primitives.StatusBar>().FirstOrDefault();
-      if (statusBar?.Items.Count > 0 && statusBar.Items[0] is StatusBarItem firstItem)
+      if (statusBar?.Items.Count > 0)
       {
-        if (firstItem.Content is TextBlock textBlock)
-          textBlock.Text = message;
+        var firstItem = statusBar.Items[0];
+        if (firstItem is System.Windows.Controls.Primitives.StatusBarItem statusBarItem)
+        {
+          if (statusBarItem.Content is TextBlock textBlock)
+            textBlock.Text = message;
+        }
       }
     }
   }
