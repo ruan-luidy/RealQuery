@@ -1,28 +1,51 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
+using ICSharpCode.AvalonEdit.Highlighting;
 
-namespace RealQuery.Views.UserControls
+namespace RealQuery.Views.UserControls;
+
+/// <summary>
+/// Interaction logic for CodeEditor.xaml
+/// </summary>
+public partial class CodeEditor : UserControl
 {
-  /// <summary>
-  /// Interaction logic for CodeEditor.xaml
-  /// </summary>
-  public partial class CodeEditor : UserControl
+  public CodeEditor()
   {
-    public CodeEditor()
+    InitializeComponent();
+    InitializeEditor();
+  }
+
+  private void InitializeEditor()
+  {
+    // Configurar syntax highlighting para C#
+    AvalonEditor.SyntaxHighlighting = HighlightingManager.Instance.GetDefinition("C#");
+
+    // Texto inicial
+    AvalonEditor.Text = @"// Write your C# transformation code here
+// Available variable: data (DataTable)
+
+// Example:
+// Filter rows where Age > 18
+// data = data.AsEnumerable()
+//     .Where(row => (int)row[""Age""] > 18)
+//     .CopyToDataTable();
+
+";
+
+    // Focus
+    Loaded += (s, e) => AvalonEditor.Focus();
+  }
+
+  /// <summary>
+  /// Obtém ou define o texto do código
+  /// </summary>
+  public string CodeText
+  {
+    get => AvalonEditor?.Text ?? "";
+    set
     {
-      InitializeComponent();
+      if (AvalonEditor != null)
+        AvalonEditor.Text = value ?? "";
     }
   }
 }

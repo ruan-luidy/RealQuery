@@ -6,6 +6,7 @@
   xmlns:hc="https://handyorg.github.io/handycontrol"
   xmlns:local="clr-namespace:RealQuery.Views.Windows"
   xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+  xmlns:usercontrols="clr-namespace:RealQuery.Views.UserControls"
   xmlns:viewmodels="clr-namespace:RealQuery.ViewModels"
   Title="RealQuery - Visual ETL Tool"
   Width="1400"
@@ -219,37 +220,10 @@
           Grid.Row="2"
           Margin="10"
           Effect="{StaticResource EffectShadow2}">
-          <DockPanel>
-            <hc:UniformSpacingPanel
-              Margin="10"
-              DockPanel.Dock="Top"
-              Spacing="10">
-              <TextBlock Style="{StaticResource TextBlockTitle}" Text="C# Code Editor" />
-              <Button
-                Command="{Binding ExecuteCodeCommand}"
-                Content="Execute"
-                IsEnabled="{Binding IsProcessing, Converter={StaticResource Boolean2BooleanReConverter}}"
-                Style="{StaticResource ButtonSuccess}" />
-              <Button Content="Templates" Style="{StaticResource ButtonInfo}" />
-            </hc:UniformSpacingPanel>
 
-            <!--  Placeholder para AvalonEdit (será adicionado via código)  -->
-            <Border
-              x:Name="CodeEditorContainer"
-              Margin="10"
-              BorderBrush="LightGray"
-              BorderThickness="1"
-              CornerRadius="3">
-              <TextBox
-                AcceptsReturn="True"
-                AcceptsTab="True"
-                FontFamily="Consolas"
-                FontSize="14"
-                HorizontalScrollBarVisibility="Auto"
-                Text="{Binding CSharpCode, UpdateSourceTrigger=PropertyChanged}"
-                VerticalScrollBarVisibility="Auto" />
-            </Border>
-          </DockPanel>
+          <!--  UserControl CodeEditor existente  -->
+          <usercontrols:CodeEditor x:Name="CSharpCodeEditor" />
+
         </hc:Card>
       </Grid>
     </Grid>

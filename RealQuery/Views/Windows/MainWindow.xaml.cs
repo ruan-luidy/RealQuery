@@ -1,57 +1,50 @@
-﻿using System.Windows;
+﻿using System.Data;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Media;
+using RealQuery.Core.Services;
 using RealQuery.ViewModels;
 
 namespace RealQuery.Views.Windows;
 
 public partial class MainWindow : HandyControl.Controls.Window
 {
+  private MainViewModel? _viewModel;
+
   public MainWindow()
   {
     InitializeComponent();
 
-    // O DataContext já é definido no XAML, mas podemos acessar se necessário
-    var viewModel = (MainViewModel)DataContext;
-
-    // Qualquer inicialização adicional da view pode ser feita aqui
-    // Por exemplo, configurar AvalonEdit quando implementarmos
+    // Conectar ViewModel se não estiver definido no XAML
+    if (DataContext == null)
+    {
+      _viewModel = new MainViewModel();
+      DataContext = _viewModel;
+    }
 
     Loaded += MainWindow_Loaded;
   }
 
-  /// <summary>
-  /// Evento quando a window termina de carregar
-  /// </summary>
   private void MainWindow_Loaded(object sender, RoutedEventArgs e)
   {
-    // Aqui podemos fazer configurações que precisam da window carregada
-    // Como inicializar o AvalonEdit ou outros controles específicos
+    // Conectar código do editor com ViewModel se necessário
+    if (_viewModel != null && CSharpCodeEditor != null)
+    {
+      // Sincronizar código inicial
+      CSharpCodeEditor.CodeText = _viewModel.CSharpCode;
 
-    // Por enquanto, apenas log para debug
-    System.Diagnostics.Debug.WriteLine("MainWindow loaded successfully with MVVM binding");
-  }
+      // Evento quando código muda no editor
+      CSharpCodeEditor.AvalonEditor.TextChanged += (s, args) =>
+      {
+        _viewModel.CSharpCode = CSharpCodeEditor.CodeText;
+      };
 
-  /// <summary>
-  /// Método para futuras configurações do AvalonEdit
-  /// </summary>
-  private void InitializeCodeEditor()
-  {
-    // TODO: Configurar AvalonEdit quando implementarmos
-    // var codeEditor = new ICSharpCode.AvalonEdit.TextEditor();
-    // CodeEditorContainer.Child = codeEditor;
-    // 
-    // // Binding para o texto
-    // var binding = new Binding("CSharpCode");
-    // binding.Source = DataContext;
-    // binding.UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged;
-    // codeEditor.SetBinding(TextEditor.TextProperty, binding);
-  }
-
-  /// <summary>
-  /// Override para cleanup se necessário
-  /// </summary>
-  protected override void OnClosed(EventArgs e)
-  {
-    // Cleanup se necessário
-    base.OnClosed(e);
+      // Botão execute no editor
+      CSharpCodeEditor.ExecuteButton.Click += (s, args) =>
+      {
+        if (_viewModel.ExecuteCodeCommand.CanExecute(null))
+          _viewModel.ExecuteCodeCommand.Execute(null);
+      };
+    }
   }
 }
