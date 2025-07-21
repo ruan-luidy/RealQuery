@@ -79,8 +79,8 @@ public class ExcelDataService : IDataService
         // Escrever headers
         for (int col = 0; col < data.Columns.Count; col++)
         {
-          worksheet[0, col].Value = data.Columns[col].ColumnName;
-          worksheet[0, col].Style.Font.Bold = true;
+          worksheet[$"A{1}"].Offset(0, col).Value = data.Columns[col].ColumnName;
+          worksheet[$"A{1}"].Offset(0, col).Style.Font.Bold = true;
         }
 
         // Escrever dados
@@ -89,14 +89,8 @@ public class ExcelDataService : IDataService
           for (int col = 0; col < data.Columns.Count; col++)
           {
             var value = data.Rows[row][col];
-            worksheet[row + 1, col].Value = value?.ToString() ?? "";
+            worksheet[$"A{row + 2}"].Offset(0, col).Value = value?.ToString() ?? "";
           }
-        }
-
-        // Auto-fit columns
-        foreach (var column in worksheet.Columns)
-        {
-          column.AutoSizeColumn();
         }
 
         // Salvar arquivo
@@ -122,7 +116,7 @@ public class ExcelDataService : IDataService
       try
       {
         var workbook = WorkBook.Load(filePath);
-        var worksheet = workbook.WorkSheets[worksheetName];
+        var worksheet = workbook.WorkSheets.FirstOrDefault(ws => ws.Name == worksheetName);
 
         if (worksheet == null)
           throw new InvalidOperationException($"Planilha '{worksheetName}' não encontrada.");
@@ -165,20 +159,23 @@ public class ExcelDataService : IDataService
   {
     var dataTable = new DataTable();
 
-    if (worksheet.Dimension == null || worksheet.Dimension.Rows == 0)
+    // Obter range de dados usando RangeAddressAsString
+    var range = worksheet.GetRange(worksheet.RangeAddressAsString);
+
+    if (range == null || range.Count == 0)
       return dataTable;
 
-    // Detectar range de dados
-    var firstRow = worksheet.Dimension.TopLeftCellAddress.Row;
-    var lastRow = worksheet.Dimension.BottomRightCellAddress.Row;
-    var firstColumn = worksheet.Dimension.TopLeftCellAddress.Column;
-    var lastColumn = worksheet.Dimension.BottomRightCellAddress.Column;
+    // Detectar dimensões
+    var firstRow = range.FirstRow;
+    var lastRow = range.LastRow;
+    var firstColumn = range.FirstColumn;
+    var lastColumn = range.LastColumn;
 
     // Criar colunas baseadas na primeira linha (headers)
     for (int col = firstColumn; col <= lastColumn; col++)
     {
-      var headerCell = worksheet[firstRow, col];
-      var columnName = headerCell?.Value?.ToString() ?? $"Column{col}";
+      var headerCell = worksheet[$"{GetColumnName(col)}{firstRow + 1}"];
+      var columnName = headerCell?.Value?.ToString() ?? $"Column{col + 1}";
 
       // Garantir nomes únicos de colunas
       var originalName = columnName;
@@ -199,7 +196,7 @@ public class ExcelDataService : IDataService
 
       for (int col = firstColumn; col <= lastColumn; col++)
       {
-        var cell = worksheet[row, col];
+        var cell = worksheet[$"{GetColumnName(col)}{row + 1}"];
         var value = cell?.Value?.ToString() ?? "";
 
         if (!string.IsNullOrEmpty(value))
@@ -217,6 +214,20 @@ public class ExcelDataService : IDataService
   }
 
   /// <summary>
+  /// Converte índice numérico de coluna para letra (0 = A, 1 = B, etc.)
+  /// </summary>
+  private string GetColumnName(int columnIndex)
+  {
+    var columnName = "";
+    while (columnIndex >= 0)
+    {
+      columnName = (char)('A' + columnIndex % 26) + columnName;
+      columnIndex = columnIndex / 26 - 1;
+    }
+    return columnName;
+  }
+
+  /// <summary>
   /// Obtém informações sobre o arquivo Excel
   /// </summary>
   public async Task<ExcelFileInfo> GetFileInfoAsync(string filePath)
@@ -229,11 +240,15 @@ public class ExcelDataService : IDataService
       try
       {
         var workbook = WorkBook.Load(filePath);
-        var worksheets = workbook.WorkSheets.Select(ws => new WorksheetInfo
+        var worksheets = workbook.WorkSheets.Select(ws =>
         {
-          Name = ws.Name,
-          RowCount = ws.Dimension?.Rows ?? 0,
-          ColumnCount = ws.Dimension?.Columns ?? 0
+          var range = ws.GetRange(ws.RangeAddressAsString);
+          return new WorksheetInfo
+          {
+            Name = ws.Name,
+            RowCount = range?.LastRow - range?.FirstRow + 1 ?? 0,
+            ColumnCount = range?.LastColumn - range?.FirstColumn + 1 ?? 0
+          };
         }).ToArray();
 
         return new ExcelFileInfo

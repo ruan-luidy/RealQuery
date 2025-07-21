@@ -1,6 +1,7 @@
 ﻿using System.Data;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 using RealQuery.Core.Services;
 
 namespace RealQuery.Views.Windows;
@@ -35,7 +36,7 @@ public partial class MainWindow : HandyControl.Controls.Window
     var toolbar = ((Grid)this.NonClientAreaContent).Children.OfType<StackPanel>().FirstOrDefault();
     if (toolbar != null)
     {
-      var buttons = toolbar.Children.OfType<Button>().ToArray();
+      var buttons = toolbar.Children.OfType<System.Windows.Controls.Button>().ToArray();
 
       if (buttons.Length >= 5)
       {
@@ -288,11 +289,16 @@ public partial class MainWindow : HandyControl.Controls.Window
   /// </summary>
   private void UpdateStatus(string message)
   {
-    var statusBar = this.FindName("StatusBar") as StatusBar;
-    if (statusBar?.Items.Count > 0 && statusBar.Items[0] is StatusBarItem firstItem)
+    // Encontrar StatusBar no Grid
+    var mainGrid = this.Content as Grid;
+    if (mainGrid != null)
     {
-      if (firstItem.Content is TextBlock textBlock)
-        textBlock.Text = message;
+      var statusBar = mainGrid.Children.OfType<System.Windows.Controls.Primitives.StatusBar>().FirstOrDefault();
+      if (statusBar?.Items.Count > 0 && statusBar.Items[0] is StatusBarItem firstItem)
+      {
+        if (firstItem.Content is TextBlock textBlock)
+          textBlock.Text = message;
+      }
     }
   }
 
@@ -315,7 +321,7 @@ public partial class MainWindow : HandyControl.Controls.Window
     {
       Text = description,
       FontSize = 11,
-      Foreground = System.Windows.Media.Brushes.Gray
+      Foreground = Brushes.Gray
     };
 
     stackPanel.Children.Add(titleBlock);
