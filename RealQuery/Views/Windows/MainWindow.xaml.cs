@@ -1,8 +1,4 @@
-﻿using System.Data;
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Media;
-using RealQuery.Core.Services;
+﻿using System.Windows;
 using RealQuery.ViewModels;
 
 namespace RealQuery.Views.Windows;
@@ -15,36 +11,59 @@ public partial class MainWindow : HandyControl.Controls.Window
   {
     InitializeComponent();
 
-    // Conectar ViewModel se não estiver definido no XAML
-    if (DataContext == null)
-    {
-      _viewModel = new MainViewModel();
-      DataContext = _viewModel;
-    }
-
+    // ViewModel já definido no XAML, mas vamos conectar eventos
     Loaded += MainWindow_Loaded;
   }
 
   private void MainWindow_Loaded(object sender, RoutedEventArgs e)
   {
-    // Conectar código do editor com ViewModel se necessário
+    _viewModel = DataContext as MainViewModel;
+
     if (_viewModel != null && CSharpCodeEditor != null)
     {
-      // Sincronizar código inicial
-      CSharpCodeEditor.CodeText = _viewModel.CSharpCode;
-
-      // Evento quando código muda no editor
-      CSharpCodeEditor.AvalonEditor.TextChanged += (s, args) =>
-      {
-        _viewModel.CSharpCode = CSharpCodeEditor.CodeText;
-      };
-
-      // Botão execute no editor
-      CSharpCodeEditor.ExecuteButton.Click += (s, args) =>
+      // Conectar eventos do CodeEditor com ViewModel
+      CSharpCodeEditor.ExecuteRequested += (s, args) =>
       {
         if (_viewModel.ExecuteCodeCommand.CanExecute(null))
           _viewModel.ExecuteCodeCommand.Execute(null);
       };
+
+      CSharpCodeEditor.ValidateRequested += (s, args) =>
+      {
+        if (_viewModel.ValidateCodeCommand.CanExecute(null))
+          _viewModel.ValidateCodeCommand.Execute(null);
+      };
+
+      CSharpCodeEditor.TemplateRequested += (s, templateKey) =>
+      {
+        if (_viewModel.InsertCodeTemplateCommand.CanExecute(templateKey))
+          _viewModel.InsertCodeTemplateCommand.Execute(templateKey);
+      };
+
+      // Binding manual para propriedades que precisam de sincronização
+      _viewModel.PropertyChanged += (s, e) =>
+      {
+        switch (e.PropertyName)
+        {
+          case nameof(_viewModel.CSharpCode):
+            if (CSharpCodeEditor.CodeText != _viewModel.CSharpCode)
+              CSharpCodeEditor.CodeText = _viewModel.CSharpCode;
+            break;
+
+          case nameof(_viewModel.HasCodeErrors):
+            CSharpCodeEditor.HasErrors = _viewModel.HasCodeErrors;
+            break;
+
+          case nameof(_viewModel.CodeValidationMessage):
+            CSharpCodeEditor.ValidationMessage = _viewModel.CodeValidationMessage;
+            break;
+        }
+      };
+
+      // Binding reverso - quando CodeEditor muda, atualiza ViewModel
+      CSharpCodeEditor.GetBindingExpression(Views.UserControls.CodeEditor.CodeTextProperty)?.UpdateSource();
     }
+
+    System.Diagnostics.Debug.WriteLine("MainWindow loaded with Roslyn + AvalonEdit integration");
   }
 }

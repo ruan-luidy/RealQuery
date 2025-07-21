@@ -13,40 +13,120 @@
     <Grid.RowDefinitions>
       <RowDefinition Height="Auto" />
       <RowDefinition Height="*" />
+      <RowDefinition Height="Auto" />
     </Grid.RowDefinitions>
 
     <!--  Toolbar  -->
-    <hc:UniformSpacingPanel
+    <Border
       Grid.Row="0"
-      Margin="10"
-      Spacing="10">
-      <TextBlock Style="{StaticResource TextBlockTitle}" Text="C# Code Editor" />
-      <Button
-        x:Name="ExecuteButton"
-        Content="Execute"
-        Style="{StaticResource ButtonSuccess}" />
-      <Button
-        x:Name="FormatButton"
-        Content="Format"
-        Style="{StaticResource ButtonInfo}" />
-    </hc:UniformSpacingPanel>
+      Padding="10,8"
+      Background="{DynamicResource SecondaryRegionBrush}"
+      BorderBrush="{DynamicResource BorderBrush}"
+      BorderThickness="0,0,0,1">
+
+      <hc:UniformSpacingPanel Orientation="Horizontal" Spacing="10">
+        <TextBlock Style="{StaticResource TextBlockTitle}" Text="C# Code Editor" />
+
+        <Separator />
+
+        <Button
+          x:Name="ExecuteButton"
+          Content="▶️ Execute"
+          Style="{StaticResource ButtonSuccess}"
+          ToolTip="Execute code (F5)" />
+
+        <Button
+          x:Name="ValidateButton"
+          Content="✓ Validate"
+          Style="{StaticResource ButtonInfo}"
+          ToolTip="Validate syntax (F7)" />
+
+        <Button
+          x:Name="FormatButton"
+          Content="📝 Format"
+          Style="{StaticResource ButtonDefault}"
+          ToolTip="Format code" />
+
+        <Button
+          x:Name="TemplatesButton"
+          Content="📋 Templates"
+          Style="{StaticResource ButtonDefault}"
+          ToolTip="Insert code template">
+          <Button.ContextMenu>
+            <ContextMenu x:Name="TemplatesMenu">
+              <MenuItem x:Name="FilterTemplate" Header="🔍 Filter Rows" />
+              <MenuItem x:Name="SortTemplate" Header="🔀 Sort Data" />
+              <MenuItem x:Name="AddColumnTemplate" Header="➕ Add Column" />
+              <MenuItem x:Name="GroupTemplate" Header="📊 Group &amp; Aggregate" />
+              <MenuItem x:Name="RemoveDuplicatesTemplate" Header="🗑️ Remove Duplicates" />
+              <MenuItem x:Name="ConvertTypesTemplate" Header="🔄 Convert Types" />
+            </ContextMenu>
+          </Button.ContextMenu>
+        </Button>
+
+        <Separator />
+
+        <!--  Status indicator  -->
+        <StackPanel Orientation="Horizontal">
+          <Ellipse
+            x:Name="StatusIndicator"
+            Width="8"
+            Height="8"
+            Margin="0,0,5,0"
+            VerticalAlignment="Center"
+            Fill="{DynamicResource SuccessBrush}" />
+          <TextBlock
+            x:Name="StatusText"
+            VerticalAlignment="Center"
+            FontSize="11"
+            Text="✓ Ready" />
+        </StackPanel>
+      </hc:UniformSpacingPanel>
+    </Border>
 
     <!--  Editor  -->
     <Border
       Grid.Row="1"
-      Margin="10"
       BorderBrush="{DynamicResource BorderBrush}"
-      BorderThickness="1"
-      CornerRadius="3">
+      BorderThickness="1,0,1,0">
       <avalonedit:TextEditor
         x:Name="AvalonEditor"
         Background="{DynamicResource RegionBrush}"
-        FontFamily="Cascadia Code"
+        FontFamily="Consolas, Cascadia Code, Monaco"
         FontSize="14"
         Foreground="{DynamicResource PrimaryTextBrush}"
+        HorizontalScrollBarVisibility="Auto"
+        LineNumbersForeground="{DynamicResource ThirdlyTextBrush}"
         ShowLineNumbers="True"
         SyntaxHighlighting="C#"
+        VerticalScrollBarVisibility="Auto"
         WordWrap="False" />
+    </Border>
+
+    <!--  Error/Status Bar  -->
+    <Border
+      x:Name="ErrorPanel"
+      Grid.Row="2"
+      Padding="10,8"
+      Background="{DynamicResource DangerBrush}"
+      BorderBrush="{DynamicResource BorderBrush}"
+      BorderThickness="1,1,1,0"
+      Visibility="Collapsed">
+
+      <ScrollViewer MaxHeight="100" VerticalScrollBarVisibility="Auto">
+        <StackPanel>
+          <TextBlock
+            FontWeight="Bold"
+            Foreground="White"
+            Text="⚠️ Code Validation Errors:" />
+          <TextBlock
+            x:Name="ErrorText"
+            Margin="0,4,0,0"
+            FontSize="11"
+            Foreground="White"
+            TextWrapping="Wrap" />
+        </StackPanel>
+      </ScrollViewer>
     </Border>
   </Grid>
 </UserControl>

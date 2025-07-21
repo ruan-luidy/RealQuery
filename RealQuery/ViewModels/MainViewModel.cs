@@ -15,6 +15,7 @@ public partial class MainViewModel : ObservableObject
   private readonly ExcelDataService _excelService;
   private readonly CsvDataService _csvService;
   private readonly FileDialogService _fileDialogService;
+  private readonly CSharpTransformationEngine _transformationEngine;
   #endregion
 
   #region Observable Properties
@@ -23,7 +24,15 @@ public partial class MainViewModel : ObservableObject
   private DataTable? _currentData;
 
   [ObservableProperty]
-  private string _cSharpCode = "// Write your C# transformation code here\n// Example:\n// data = data.Where(row => row[\"Age\"] > 18);";
+  private string _cSharpCode = @"// Write your C# transformation code here
+// Available variable: data (DataTable)
+
+// Examples:
+// Filter rows: data = data.AsEnumerable().Where(row => row.Field<int>(""Age"") > 25).CopyToDataTable();
+// Add column: data.Columns.Add(""Status"", typeof(string));
+// Sort data: data.DefaultView.Sort = ""Name ASC""; data = data.DefaultView.ToTable();
+
+";
 
   [ObservableProperty]
   private string _statusMessage = "Ready";
@@ -45,6 +54,12 @@ public partial class MainViewModel : ObservableObject
 
   [ObservableProperty]
   private TransformationStep? _selectedStep;
+
+  [ObservableProperty]
+  private bool _hasCodeErrors;
+
+  [ObservableProperty]
+  private string _codeValidationMessage = "";
 
   #endregion
 
@@ -71,7 +86,6 @@ public partial class MainViewModel : ObservableObject
 
       StatusMessage = "Importing data...";
 
-      // Validar arquivo
       if (!_fileDialogService.ValidateFile(filePath, out string errorMessage))
       {
         ShowError($"File validation error:\n{errorMessage}");
@@ -79,17 +93,13 @@ public partial class MainViewModel : ObservableObject
         return;
       }
 
-      // Determinar serviço baseado na extensão
       IDataService dataService = GetDataServiceForFile(filePath);
-
       var stopwatch = Stopwatch.StartNew();
       CurrentData = await dataService.ImportAsync(filePath);
       stopwatch.Stop();
 
-      // Atualizar estatísticas
       UpdateDataInfo(CurrentData);
 
-      // Adicionar step
       var step = TransformationStep.CreateImportStep(
           Path.GetFileName(filePath),
           CurrentData.Rows.Count
@@ -98,7 +108,6 @@ public partial class MainViewModel : ObservableObject
       step.ExecutionTime = stopwatch.Elapsed;
 
       TransformationSteps.Add(step);
-
       StatusMessage = $"Import completed: {CurrentData.Rows.Count:N0} rows loaded";
     }
     catch (Exception ex)
@@ -141,7 +150,6 @@ public partial class MainViewModel : ObservableObject
 
       StatusMessage = "Exporting data...";
 
-      // Validar caminho de saída
       if (!_fileDialogService.ValidateOutputPath(filePath, out string errorMessage))
       {
         ShowError($"Output path validation error:\n{errorMessage}");
@@ -149,14 +157,11 @@ public partial class MainViewModel : ObservableObject
         return;
       }
 
-      // Determinar serviço baseado na extensão
       IDataService dataService = GetDataServiceForFile(filePath);
-
       var stopwatch = Stopwatch.StartNew();
       await dataService.ExportAsync(CurrentData, filePath);
       stopwatch.Stop();
 
-      // Adicionar step
       var step = TransformationStep.CreateExportStep(
           Path.GetFileName(filePath),
           CurrentData.Rows.Count
@@ -165,10 +170,8 @@ public partial class MainViewModel : ObservableObject
       step.ExecutionTime = stopwatch.Elapsed;
 
       TransformationSteps.Add(step);
-
       StatusMessage = $"Export completed: {Path.GetFileName(filePath)}";
 
-      // Perguntar se quer abrir o arquivo
       var result = MessageBox.Show(
           $"File exported successfully!\n\n{filePath}\n\nWould you like to open the file?",
           "Export Completed",
@@ -220,24 +223,37 @@ public partial class MainViewModel : ObservableObject
       var step = TransformationStep.CreateCodeStep(CSharpCode, inputRows);
       step.StepNumber = TransformationSteps.Count + 1;
 
-      var stopwatch = Stopwatch.StartNew();
+      // EXECUÇÃO REAL COM ROSLYN!
+      var result = await _transformationEngine.ExecuteAsync(CSharpCode, CurrentData);
 
-      // TODO: Implementar execução real com Roslyn
-      // Por enquanto, simular transformação
-      await Task.Delay(500); // Simular processamento
+      if (result.Success && result.ResultData != null)
+      {
+        // Atualizar dados com resultado da transformação
+        CurrentData = result.ResultData;
+        UpdateDataInfo(CurrentData);
 
-      stopwatch.Stop();
+        step.MarkAsExecuted(result.ExecutionTime, CurrentData.Rows.Count);
+        TransformationSteps.Add(step);
 
-      // Simular resultado (remover quando Roslyn estiver implementado)
-      var outputRows = CurrentData.Rows.Count;
-      step.MarkAsExecuted(stopwatch.Elapsed, outputRows);
+        LastExecutionTime = $"{result.ExecutionTime.TotalSeconds:F2}s";
+        StatusMessage = result.Message;
 
-      TransformationSteps.Add(step);
+        // Limpar erros
+        HasCodeErrors = false;
+        CodeValidationMessage = "";
+      }
+      else
+      {
+        // Erro na execução
+        step.MarkAsError(result.ErrorMessage ?? "Unknown error");
+        TransformationSteps.Add(step);
 
-      LastExecutionTime = $"{stopwatch.Elapsed.TotalSeconds:F2}s";
-      StatusMessage = "Code execution completed";
+        HasCodeErrors = true;
+        CodeValidationMessage = result.ErrorMessage ?? "";
+        StatusMessage = "Code execution failed";
 
-      ShowInfo("Code execution completed!\n\nNote: Roslyn C# execution will be implemented in the next phase.");
+        ShowError($"Code execution error:\n{result.ErrorMessage}");
+      }
     }
     catch (Exception ex)
     {
@@ -246,12 +262,43 @@ public partial class MainViewModel : ObservableObject
       step.MarkAsError(ex.Message);
       TransformationSteps.Add(step);
 
-      ShowError($"Code execution error:\n{ex.Message}");
+      HasCodeErrors = true;
+      CodeValidationMessage = ex.Message;
+      ShowError($"Unexpected error:\n{ex.Message}");
       StatusMessage = "Code execution failed";
     }
     finally
     {
       IsProcessing = false;
+    }
+  }
+
+  [RelayCommand]
+  private async Task ValidateCodeAsync()
+  {
+    if (string.IsNullOrWhiteSpace(CSharpCode))
+    {
+      HasCodeErrors = false;
+      CodeValidationMessage = "";
+      return;
+    }
+
+    try
+    {
+      StatusMessage = "Validating code...";
+
+      var validation = await Task.Run(() => _transformationEngine.ValidateCode(CSharpCode));
+
+      HasCodeErrors = !validation.IsValid;
+      CodeValidationMessage = validation.ErrorMessage ?? "";
+
+      StatusMessage = validation.IsValid ? "Code validation passed" : "Code validation failed";
+    }
+    catch (Exception ex)
+    {
+      HasCodeErrors = true;
+      CodeValidationMessage = ex.Message;
+      StatusMessage = "Code validation error";
     }
   }
 
@@ -269,19 +316,30 @@ public partial class MainViewModel : ObservableObject
     {
       CurrentData = null;
       TransformationSteps.Clear();
-      CSharpCode = "// Write your C# transformation code here\n// Example:\n// data = data.Where(row => row[\"Age\"] > 18);";
+      CSharpCode = @"// Write your C# transformation code here
+// Available variable: data (DataTable)
+
+// Examples:
+// Filter rows: data = data.AsEnumerable().Where(row => row.Field<int>(""Age"") > 25).CopyToDataTable();
+// Add column: data.Columns.Add(""Status"", typeof(string));
+// Sort data: data.DefaultView.Sort = ""Name ASC""; data = data.DefaultView.ToTable();
+
+";
 
       RowCount = 0;
       ColumnCount = 0;
       LastExecutionTime = "-";
+      HasCodeErrors = false;
+      CodeValidationMessage = "";
       StatusMessage = "Data cleared";
+
+      _transformationEngine.ResetScriptState();
     }
   }
 
   [RelayCommand]
   private void SaveWorkspace()
   {
-    // TODO: Implementar salvamento de workspace
     ShowInfo("Workspace save functionality will be implemented soon!\n\nYou'll be able to save and load complete workspaces with all transformations.");
     StatusMessage = "Workspace save - coming soon...";
   }
@@ -326,6 +384,18 @@ public partial class MainViewModel : ObservableObject
     }
   }
 
+  [RelayCommand]
+  private void InsertCodeTemplate(string templateKey)
+  {
+    var templates = _transformationEngine.GetCodeTemplates();
+    if (templates.ContainsKey(templateKey))
+    {
+      var template = templates[templateKey];
+      CSharpCode = template.Code;
+      StatusMessage = $"Inserted template: {template.Name}";
+    }
+  }
+
   #endregion
 
   #region Constructor
@@ -335,8 +405,8 @@ public partial class MainViewModel : ObservableObject
     _excelService = new ExcelDataService();
     _csvService = new CsvDataService();
     _fileDialogService = new FileDialogService();
+    _transformationEngine = new CSharpTransformationEngine();
 
-    // Carregar dados de exemplo
     LoadSampleData();
   }
 
@@ -344,9 +414,6 @@ public partial class MainViewModel : ObservableObject
 
   #region Private Methods
 
-  /// <summary>
-  /// Determina qual serviço usar baseado na extensão do arquivo
-  /// </summary>
   private IDataService GetDataServiceForFile(string filePath)
   {
     if (_excelService.CanHandle(filePath))
@@ -358,18 +425,12 @@ public partial class MainViewModel : ObservableObject
     throw new NotSupportedException($"File format not supported: {Path.GetExtension(filePath)}");
   }
 
-  /// <summary>
-  /// Atualiza informações dos dados
-  /// </summary>
   private void UpdateDataInfo(DataTable data)
   {
     RowCount = data.Rows.Count;
     ColumnCount = data.Columns.Count;
   }
 
-  /// <summary>
-  /// Renumera os steps após remoção
-  /// </summary>
   private void RenumberSteps()
   {
     for (int i = 0; i < TransformationSteps.Count; i++)
@@ -378,9 +439,6 @@ public partial class MainViewModel : ObservableObject
     }
   }
 
-  /// <summary>
-  /// Carrega dados de exemplo para demonstração
-  /// </summary>
   private void LoadSampleData()
   {
     var sampleData = new DataTable();
@@ -407,28 +465,39 @@ public partial class MainViewModel : ObservableObject
     TransformationSteps.Add(sampleStep);
   }
 
-  /// <summary>
-  /// Mostra mensagem de erro
-  /// </summary>
   private void ShowError(string message)
   {
     MessageBox.Show(message, "Error", MessageBoxButton.OK, MessageBoxImage.Error);
   }
 
-  /// <summary>
-  /// Mostra mensagem de aviso
-  /// </summary>
   private void ShowWarning(string message)
   {
     MessageBox.Show(message, "Warning", MessageBoxButton.OK, MessageBoxImage.Warning);
   }
 
-  /// <summary>
-  /// Mostra mensagem informativa
-  /// </summary>
   private void ShowInfo(string message)
   {
     MessageBox.Show(message, "Information", MessageBoxButton.OK, MessageBoxImage.Information);
+  }
+
+  #endregion
+
+  #region Code Validation (Auto-triggered)
+
+  partial void OnCSharpCodeChanged(string value)
+  {
+    // Validação automática com delay
+    Task.Delay(1500).ContinueWith(_ =>
+    {
+      if (CSharpCode == value) // Verificar se ainda é o mesmo código
+      {
+        System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
+        {
+          if (ValidateCodeCommand.CanExecute(null))
+            ValidateCodeCommand.Execute(null);
+        });
+      }
+    });
   }
 
   #endregion
