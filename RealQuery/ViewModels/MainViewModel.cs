@@ -463,6 +463,8 @@ public partial class MainViewModel : ObservableObject
     var sampleStep = TransformationStep.CreateImportStep("Sample Data", sampleData.Rows.Count);
     sampleStep.StepNumber = 1;
     TransformationSteps.Add(sampleStep);
+
+    StatusMessage = "Sample data loaded - ready to transform!";
   }
 
   private void ShowError(string message)
@@ -482,19 +484,41 @@ public partial class MainViewModel : ObservableObject
 
   #endregion
 
+  #region Property Changed Handlers
+
+  partial void OnCurrentDataChanged(DataTable? value)
+  {
+    if (value != null)
+      UpdateDataInfo(value);
+    else
+    {
+      RowCount = 0;
+      ColumnCount = 0;
+    }
+  }
+
+  #endregion
+
   #region Code Validation (Auto-triggered)
 
   partial void OnCSharpCodeChanged(string value)
   {
-    // Validação automática com delay
-    Task.Delay(1500).ContinueWith(_ =>
+    // Validação automática com delay para não sobrecarregar
+    Task.Delay(2000).ContinueWith(_ =>
     {
       if (CSharpCode == value) // Verificar se ainda é o mesmo código
       {
         System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
         {
-          if (ValidateCodeCommand.CanExecute(null))
-            ValidateCodeCommand.Execute(null);
+          try
+          {
+            if (ValidateCodeCommand.CanExecute(null))
+              ValidateCodeCommand.Execute(null);
+          }
+          catch (Exception ex)
+          {
+            System.Diagnostics.Debug.WriteLine($"Auto-validation error: {ex.Message}");
+          }
         });
       }
     });

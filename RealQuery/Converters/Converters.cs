@@ -27,6 +27,28 @@ public class InverseBooleanConverter : IValueConverter
 }
 
 /// <summary>
+/// Conversor Boolean para Visibility
+/// </summary>
+public class BooleanToVisibilityConverter : IValueConverter
+{
+  public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+  {
+    if (value is bool boolValue)
+      return boolValue ? Visibility.Visible : Visibility.Collapsed;
+
+    return Visibility.Collapsed;
+  }
+
+  public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+  {
+    if (value is Visibility visibility)
+      return visibility == Visibility.Visible;
+
+    return false;
+  }
+}
+
+/// <summary>
 /// Conversor para mostrar/esconder baseado em objeto null/not null
 /// </summary>
 public class ObjectToVisibilityConverter : IValueConverter

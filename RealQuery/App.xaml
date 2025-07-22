@@ -24,7 +24,7 @@
       <converters:TimeSpanToStringConverter x:Key="TimeSpanToStringConverter" />
       <converters:StepStatusToColorConverter x:Key="StepStatusToColorConverter" />
 
-      <!--  HandyControl Built-in Converters (if not available, we'll use ours)  -->
+      <!--  HandyControl Built-in Converters aliases  -->
       <converters:InverseBooleanConverter x:Key="Boolean2BooleanReConverter" />
 
     </ResourceDictionary>

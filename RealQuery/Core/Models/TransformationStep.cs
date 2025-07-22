@@ -43,6 +43,10 @@ public partial class TransformationStep : ObservableObject
   [ObservableProperty]
   private int _outputRowCount;
 
+  // PROPRIEDADES COMPUTED PARA BINDING
+  public string StatusIcon => GetStatusIcon();
+  public string StatusColor => GetStatusColor();
+
   public TransformationStep()
   {
     Timestamp = DateTime.Now;
@@ -115,6 +119,10 @@ public partial class TransformationStep : ObservableObject
     ErrorMessage = null;
     ExecutionTime = executionTime;
     OutputRowCount = outputRowCount;
+
+    // Notify UI sobre mudanças nas computed properties
+    OnPropertyChanged(nameof(StatusIcon));
+    OnPropertyChanged(nameof(StatusColor));
   }
 
   /// <summary>
@@ -125,6 +133,10 @@ public partial class TransformationStep : ObservableObject
     IsExecuted = false;
     HasError = true;
     ErrorMessage = errorMessage;
+
+    // Notify UI sobre mudanças nas computed properties
+    OnPropertyChanged(nameof(StatusIcon));
+    OnPropertyChanged(nameof(StatusColor));
   }
 
   /// <summary>
@@ -160,5 +172,18 @@ public partial class TransformationStep : ObservableObject
     if (HasError) return "#ff4757";
     if (IsExecuted) return "#2ed573";
     return "#ffa502";
+  }
+
+  // Override dos property changed para notificar computed properties
+  partial void OnIsExecutedChanged(bool value)
+  {
+    OnPropertyChanged(nameof(StatusIcon));
+    OnPropertyChanged(nameof(StatusColor));
+  }
+
+  partial void OnHasErrorChanged(bool value)
+  {
+    OnPropertyChanged(nameof(StatusIcon));
+    OnPropertyChanged(nameof(StatusColor));
   }
 }

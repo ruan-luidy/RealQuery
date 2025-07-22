@@ -26,33 +26,33 @@
         <Button
           Margin="5,0"
           Command="{Binding ImportDataCommand}"
-          Content="Import"
-          IsEnabled="{Binding IsProcessing, Converter={StaticResource Boolean2BooleanReConverter}}"
+          Content="📥 Import"
+          IsEnabled="{Binding IsProcessing, Converter={StaticResource InverseBooleanConverter}}"
           Style="{StaticResource ButtonPrimary}" />
         <Button
           Margin="5,0"
           Command="{Binding ExportDataCommand}"
-          Content="Export"
-          IsEnabled="{Binding IsProcessing, Converter={StaticResource Boolean2BooleanReConverter}}"
+          Content="📤 Export"
+          IsEnabled="{Binding IsProcessing, Converter={StaticResource InverseBooleanConverter}}"
           Style="{StaticResource ButtonDefault}" />
         <Separator />
         <Button
           Margin="5,0"
           Command="{Binding ExecuteCodeCommand}"
-          Content="Execute"
-          IsEnabled="{Binding IsProcessing, Converter={StaticResource Boolean2BooleanReConverter}}"
+          Content="▶️ Execute"
+          IsEnabled="{Binding IsProcessing, Converter={StaticResource InverseBooleanConverter}}"
           Style="{StaticResource ButtonSuccess}" />
         <Button
           Margin="5,0"
           Command="{Binding ClearAllCommand}"
-          Content="Clear"
-          IsEnabled="{Binding IsProcessing, Converter={StaticResource Boolean2BooleanReConverter}}"
+          Content="🗑️ Clear"
+          IsEnabled="{Binding IsProcessing, Converter={StaticResource InverseBooleanConverter}}"
           Style="{StaticResource ButtonWarning}" />
         <Separator />
         <Button
           Margin="5,0"
           Command="{Binding SaveWorkspaceCommand}"
-          Content="Save"
+          Content="💾 Save"
           Style="{StaticResource ButtonInfo}" />
       </StackPanel>
     </Grid>
@@ -96,7 +96,7 @@
             Margin="10"
             DockPanel.Dock="Top"
             Spacing="10">
-            <TextBlock Style="{StaticResource TextBlockTitle}" Text="Transformation Steps" />
+            <TextBlock Style="{StaticResource TextBlockTitle}" Text="📋 Transformation Steps" />
             <Button
               Command="{Binding ClearStepsCommand}"
               Content="Clear All"
@@ -109,35 +109,37 @@
             SelectedItem="{Binding SelectedStep}">
             <ListBox.ItemTemplate>
               <DataTemplate>
-                <hc:Card>
-                  <StackPanel>
+                <hc:Card Margin="0,2">
+                  <StackPanel Margin="8">
                     <StackPanel Orientation="Horizontal">
                       <TextBlock FontWeight="Bold" Text="{Binding StepNumber, StringFormat='{}{0}. '}" />
                       <TextBlock FontWeight="Bold" Text="{Binding Title}" />
                       <TextBlock
-                        Margin="5,0"
-                        FontSize="12"
+                        Margin="8,0,0,0"
+                        FontSize="14"
                         Text="{Binding StatusIcon}" />
                     </StackPanel>
                     <TextBlock
+                      Margin="0,4,0,0"
                       FontSize="11"
                       Foreground="Gray"
                       Text="{Binding Description}"
                       TextWrapping="Wrap" />
-                    <StackPanel Margin="0,2,0,0" Orientation="Horizontal">
+                    <StackPanel Margin="0,4,0,0" Orientation="Horizontal">
                       <TextBlock
                         FontSize="10"
                         Foreground="Gray"
-                        Text="{Binding ExecutionTime, StringFormat='Time: {0:mm\\:ss\\.fff}'}"
-                        Visibility="{Binding ExecutionTime, Converter={StaticResource Object2VisibilityConverter}}" />
+                        Text="{Binding ExecutionTime, Converter={StaticResource TimeSpanToStringConverter}, StringFormat='Time: {0}'}"
+                        Visibility="{Binding ExecutionTime, Converter={StaticResource ObjectToVisibilityConverter}}" />
                       <TextBlock
-                        Margin="10,0,0,0"
+                        Margin="15,0,0,0"
                         FontSize="10"
                         Foreground="Gray"
                         Text="{Binding OutputRowCount, StringFormat='Rows: {0:N0}'}"
-                        Visibility="{Binding OutputRowCount, Converter={StaticResource Object2VisibilityConverter}}" />
+                        Visibility="{Binding OutputRowCount, Converter={StaticResource ObjectToVisibilityConverter}}" />
                     </StackPanel>
                     <TextBlock
+                      Margin="0,4,0,0"
                       FontSize="10"
                       Foreground="Red"
                       Text="{Binding ErrorMessage}"
@@ -154,6 +156,7 @@
       <!--  GridSplitter  -->
       <GridSplitter
         Grid.Column="1"
+        Width="5"
         HorizontalAlignment="Center"
         VerticalAlignment="Stretch"
         Style="{StaticResource GridSplitter.Handy}" />
@@ -179,7 +182,7 @@
               Margin="10"
               DockPanel.Dock="Top"
               Spacing="10">
-              <TextBlock Style="{StaticResource TextBlockTitle}" Text="Data Preview" />
+              <TextBlock Style="{StaticResource TextBlockTitle}" Text="📊 Data Preview" />
               <TextBlock
                 VerticalAlignment="Center"
                 FontSize="12"
@@ -221,8 +224,12 @@
           Margin="10"
           Effect="{StaticResource EffectShadow2}">
 
-          <!--  UserControl CodeEditor existente  -->
-          <usercontrols:CodeEditor x:Name="CSharpCodeEditor" />
+          <!--  UserControl CodeEditor com bindings corretos  -->
+          <usercontrols:CodeEditor
+            x:Name="CSharpCodeEditor"
+            CodeText="{Binding CSharpCode, Mode=TwoWay}"
+            HasErrors="{Binding HasCodeErrors}"
+            ValidationMessage="{Binding CodeValidationMessage}" />
 
         </hc:Card>
       </Grid>
@@ -231,18 +238,30 @@
     <!--  StatusBar  -->
     <StatusBar Grid.Row="1">
       <StatusBarItem>
-        <TextBlock Text="{Binding StatusMessage}" />
+        <StackPanel Orientation="Horizontal">
+          <TextBlock Text="💡 Status: " />
+          <TextBlock Text="{Binding StatusMessage}" />
+        </StackPanel>
       </StatusBarItem>
       <Separator />
       <StatusBarItem>
-        <TextBlock Text="{Binding RowCount, StringFormat='Rows: {0:N0}'}" />
+        <StackPanel Orientation="Horizontal">
+          <TextBlock Text="📊 " />
+          <TextBlock Text="{Binding RowCount, StringFormat='Rows: {0:N0}'}" />
+        </StackPanel>
       </StatusBarItem>
       <StatusBarItem>
-        <TextBlock Text="{Binding ColumnCount, StringFormat='Columns: {0}'}" />
+        <StackPanel Orientation="Horizontal">
+          <TextBlock Text="📋 " />
+          <TextBlock Text="{Binding ColumnCount, StringFormat='Columns: {0}'}" />
+        </StackPanel>
       </StatusBarItem>
       <Separator />
       <StatusBarItem>
-        <TextBlock Text="{Binding LastExecutionTime, StringFormat='Last execution: {0}'}" />
+        <StackPanel Orientation="Horizontal">
+          <TextBlock Text="⏱️ " />
+          <TextBlock Text="{Binding LastExecutionTime, StringFormat='Last: {0}'}" />
+        </StackPanel>
       </StatusBarItem>
     </StatusBar>
   </Grid>
