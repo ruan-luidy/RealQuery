@@ -2,12 +2,13 @@
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
-using ICSharpCode.AvalonEdit.Highlighting;
+using Microsoft.Web.WebView2.Core;
+using System.Text.Json;
 
 namespace RealQuery.Views.UserControls;
 
 /// <summary>
-/// CodeEditor com AvalonEdit, templates e validação
+/// CodeEditor com Monaco Editor via WebView2
 /// </summary>
 public partial class CodeEditor : UserControl
 {
@@ -67,7 +68,9 @@ public partial class CodeEditor : UserControl
 
   #region Fields
 
-  private bool _isUpdatingText;
+  private bool _isEditorReady = false;
+  private bool _isUpdatingText = false;
+  private bool _isDarkTheme = true;
 
   #endregion
 
@@ -76,50 +79,234 @@ public partial class CodeEditor : UserControl
   public CodeEditor()
   {
     InitializeComponent();
-    InitializeEditor();
     InitializeEvents();
   }
 
   #endregion
 
-  #region Initialization
+  #region WebView2 & Monaco Initialization
 
-  private void InitializeEditor()
+  private async void MonacoWebView_NavigationCompleted(object? sender, CoreWebView2NavigationCompletedEventArgs e)
   {
-    // Configurar syntax highlighting
-    AvalonEditor.SyntaxHighlighting = HighlightingManager.Instance.GetDefinition("C#");
-
-    // Configurar opções
-    AvalonEditor.Options.ConvertTabsToSpaces = true;
-    AvalonEditor.Options.IndentationSize = 2;
-    AvalonEditor.Options.EnableHyperlinks = false;
-    AvalonEditor.Options.EnableEmailHyperlinks = false;
-
-    // Texto inicial
-    if (string.IsNullOrEmpty(CodeText))
+    try
     {
-      CodeText = @"// Write your C# transformation code here
-// Available variable: data (DataTable)
-
-// Examples:
-// Filter: data = data.AsEnumerable().Where(row => row.Field<int>(""Age"") > 25).CopyToDataTable();
-// Sort: data.DefaultView.Sort = ""Name ASC""; data = data.DefaultView.ToTable();
-
-";
+      if (e.IsSuccess && MonacoWebView.CoreWebView2 != null)
+      {
+        await InitializeMonacoEditor();
+      }
     }
-
-    Loaded += (s, e) => AvalonEditor.Focus();
+    catch (Exception ex)
+    {
+      System.Diagnostics.Debug.WriteLine($"Monaco initialization error: {ex.Message}");
+      StatusText.Text = "✗ Monaco Error";
+      StatusIndicator.Fill = new SolidColorBrush(Colors.Red);
+    }
   }
+
+  private async Task InitializeMonacoEditor()
+  {
+    try
+    {
+      if (MonacoWebView.CoreWebView2 == null) return;
+
+      // Register JS-C# communication
+      MonacoWebView.CoreWebView2.WebMessageReceived += OnWebMessageReceived;
+
+      // Wait for Monaco to load
+      await Task.Delay(1500);
+
+      // Set initial code
+      if (!string.IsNullOrEmpty(CodeText))
+      {
+        await SetEditorValue(CodeText);
+      }
+      else
+      {
+        await SetEditorValue(GetDefaultCode());
+      }
+
+      _isEditorReady = true;
+
+      // Setup keyboard shortcuts
+      await MonacoWebView.CoreWebView2.ExecuteScriptAsync(@"
+        if (typeof editor !== 'undefined' && editor) {
+          editor.addCommand(monaco.KeyCode.F5, function() {
+            window.chrome.webview.postMessage({ type: 'execute' });
+          });
+
+          editor.addCommand(monaco.KeyCode.F7, function() {
+            window.chrome.webview.postMessage({ type: 'validate' });
+          });
+
+          editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyF, function() {
+            window.chrome.webview.postMessage({ type: 'format' });
+          });
+        }
+      ");
+
+      StatusText.Text = "✓ Monaco Ready";
+      StatusIndicator.Fill = new SolidColorBrush(Colors.Green);
+    }
+    catch (Exception ex)
+    {
+      StatusText.Text = "✗ Monaco Error";
+      StatusIndicator.Fill = new SolidColorBrush(Colors.Red);
+      System.Diagnostics.Debug.WriteLine($"Monaco setup error: {ex.Message}");
+    }
+  }
+
+  private string GetMonacoHtml()
+  {
+    return $@"
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset='utf-8'>
+    <style>
+        body {{ margin: 0; padding: 0; overflow: hidden; }}
+        #container {{ height: 100vh; }}
+    </style>
+</head>
+<body>
+    <div id='container'></div>
+    
+    <script src='https://unpkg.com/monaco-editor@latest/min/vs/loader.js'></script>
+    <script>
+        require.config({{ paths: {{ vs: 'https://unpkg.com/monaco-editor@latest/min/vs' }} }});
+        
+        let editor;
+        
+        require(['vs/editor/editor.main'], function() {{
+            editor = monaco.editor.create(document.getElementById('container'), {{
+                value: '',
+                language: 'csharp',
+                theme: '{(_isDarkTheme ? "vs-dark" : "vs-light")}',
+                fontSize: 14,
+                fontFamily: 'Consolas, Cascadia Code, Monaco, monospace',
+                minimap: {{ enabled: true }},
+                scrollBeyondLastLine: false,
+                automaticLayout: true,
+                wordWrap: 'on',
+                lineNumbers: 'on',
+                renderWhitespace: 'selection',
+                bracketMatching: 'always',
+                autoIndent: 'full',
+                formatOnPaste: true,
+                formatOnType: true,
+                suggest: {{
+                    showKeywords: true,
+                    showSnippets: true
+                }}
+            }});
+
+            // Listen for content changes
+            editor.onDidChangeModelContent(function(e) {{
+                const content = editor.getValue();
+                window.chrome.webview.postMessage({{ 
+                    type: 'contentChanged', 
+                    content: content 
+                }});
+            }});
+
+            // Editor ready
+            window.chrome.webview.postMessage({{ type: 'ready' }});
+        }});
+
+        // Expose functions to C#
+        window.setEditorValue = function(value) {{
+            if (editor) {{
+                editor.setValue(value);
+            }}
+        }};
+
+        window.getEditorValue = function() {{
+            return editor ? editor.getValue() : '';
+        }};
+
+        window.formatCode = function() {{
+            if (editor) {{
+                editor.getAction('editor.action.formatDocument').run();
+            }}
+        }};
+
+        window.setTheme = function(theme) {{
+            if (editor) {{
+                monaco.editor.setTheme(theme);
+            }}
+        }};
+
+        window.insertText = function(text) {{
+            if (editor) {{
+                const selection = editor.getSelection();
+                const op = {{ range: selection, text: text, forceMoveMarkers: true }};
+                editor.executeEdits('insertText', [op]);
+                editor.focus();
+            }}
+        }};
+    </script>
+</body>
+</html>";
+  }
+
+  private async void OnWebMessageReceived(object? sender, CoreWebView2WebMessageReceivedEventArgs e)
+  {
+    try
+    {
+      var message = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(e.TryGetWebMessageAsString());
+
+      if (message == null) return;
+
+      var type = message["type"].GetString();
+
+      switch (type)
+      {
+        case "ready":
+          _isEditorReady = true;
+          break;
+
+        case "contentChanged":
+          if (!_isUpdatingText && message.ContainsKey("content"))
+          {
+            var content = message["content"].GetString() ?? "";
+            _isUpdatingText = true;
+            CodeText = content;
+            _isUpdatingText = false;
+          }
+          break;
+
+        case "execute":
+          ExecuteRequested?.Invoke(this, EventArgs.Empty);
+          break;
+
+        case "validate":
+          ValidateRequested?.Invoke(this, EventArgs.Empty);
+          break;
+
+        case "format":
+          await FormatCode();
+          break;
+      }
+    }
+    catch (Exception ex)
+    {
+      System.Diagnostics.Debug.WriteLine($"WebMessage error: {ex.Message}");
+    }
+  }
+
+  #endregion
+
+  #region Events Initialization
 
   private void InitializeEvents()
   {
-    // Eventos dos botões
+    // Button events
     ExecuteButton.Click += (s, e) => ExecuteRequested?.Invoke(this, EventArgs.Empty);
     ValidateButton.Click += (s, e) => ValidateRequested?.Invoke(this, EventArgs.Empty);
-    FormatButton.Click += (s, e) => FormatCode();
+    FormatButton.Click += async (s, e) => await FormatCode();
+    ThemeToggleButton.Click += async (s, e) => await ToggleTheme();
     TemplatesButton.Click += (s, e) => TemplatesButton.ContextMenu.IsOpen = true;
 
-    // Eventos dos templates
+    // Template events
     FilterTemplate.Click += (s, e) => TemplateRequested?.Invoke(this, "filter_rows");
     SortTemplate.Click += (s, e) => TemplateRequested?.Invoke(this, "sort_data");
     AddColumnTemplate.Click += (s, e) => TemplateRequested?.Invoke(this, "add_column");
@@ -127,41 +314,20 @@ public partial class CodeEditor : UserControl
     RemoveDuplicatesTemplate.Click += (s, e) => TemplateRequested?.Invoke(this, "remove_duplicates");
     ConvertTypesTemplate.Click += (s, e) => TemplateRequested?.Invoke(this, "convert_types");
 
-    // Eventos do editor
-    AvalonEditor.TextChanged += OnEditorTextChanged;
-    AvalonEditor.KeyDown += OnEditorKeyDown;
-  }
-
-  #endregion
-
-  #region Event Handlers
-
-  private void OnEditorTextChanged(object? sender, EventArgs e)
-  {
-    if (_isUpdatingText) return;
-
-    _isUpdatingText = true;
-    CodeText = AvalonEditor.Text;
-    _isUpdatingText = false;
-  }
-
-  private void OnEditorKeyDown(object? sender, KeyEventArgs e)
-  {
-    if (e.Key == Key.F5)
-    {
-      ExecuteRequested?.Invoke(this, EventArgs.Empty);
-      e.Handled = true;
-    }
-    else if (e.Key == Key.F7)
-    {
-      ValidateRequested?.Invoke(this, EventArgs.Empty);
-      e.Handled = true;
-    }
-    else if (e.Key == Key.F && e.KeyboardDevice.Modifiers == ModifierKeys.Control)
-    {
-      FormatCode();
-      e.Handled = true;
-    }
+    Loaded += async (s, e) => {
+      try
+      {
+        await MonacoWebView.EnsureCoreWebView2Async();
+        await Task.Delay(100);
+        MonacoWebView.NavigateToString(GetMonacoHtml());
+      }
+      catch (Exception ex)
+      {
+        System.Diagnostics.Debug.WriteLine($"WebView2 init error: {ex.Message}");
+        StatusText.Text = "✗ WebView2 Error";
+        StatusIndicator.Fill = new SolidColorBrush(Colors.Red);
+      }
+    };
   }
 
   #endregion
@@ -192,13 +358,19 @@ public partial class CodeEditor : UserControl
     }
   }
 
-  private void UpdateEditorText(string newText)
+  private async void UpdateEditorText(string newText)
   {
-    if (_isUpdatingText) return;
+    if (!_isEditorReady || _isUpdatingText) return;
 
-    _isUpdatingText = true;
-    AvalonEditor.Text = newText ?? string.Empty;
-    _isUpdatingText = false;
+    try
+    {
+      _isUpdatingText = true;
+      await SetEditorValue(newText ?? "");
+    }
+    finally
+    {
+      _isUpdatingText = false;
+    }
   }
 
   private void UpdateErrorState(bool hasErrors)
@@ -226,45 +398,74 @@ public partial class CodeEditor : UserControl
 
   #endregion
 
-  #region Code Operations
+  #region Monaco Operations
 
-  private void FormatCode()
+  private async Task SetEditorValue(string value)
   {
+    if (!_isEditorReady || MonacoWebView.CoreWebView2 == null) return;
+
     try
     {
-      var tree = Microsoft.CodeAnalysis.CSharp.CSharpSyntaxTree.ParseText(CodeText);
-      var root = tree.GetRoot();
-      var formatted = root.NormalizeWhitespace();
+      var escapedValue = JsonSerializer.Serialize(value);
+      await MonacoWebView.CoreWebView2.ExecuteScriptAsync($"if (typeof window.setEditorValue === 'function') window.setEditorValue({escapedValue});");
+    }
+    catch (Exception ex)
+    {
+      System.Diagnostics.Debug.WriteLine($"SetEditorValue error: {ex.Message}");
+    }
+  }
 
-      CodeText = formatted.ToFullString();
+  private async Task<string> GetEditorValue()
+  {
+    if (!_isEditorReady || MonacoWebView.CoreWebView2 == null) return "";
 
+    try
+    {
+      var result = await MonacoWebView.CoreWebView2.ExecuteScriptAsync("typeof window.getEditorValue === 'function' ? window.getEditorValue() : ''");
+      return JsonSerializer.Deserialize<string>(result) ?? "";
+    }
+    catch (Exception ex)
+    {
+      System.Diagnostics.Debug.WriteLine($"GetEditorValue error: {ex.Message}");
+      return "";
+    }
+  }
+
+  private async Task FormatCode()
+  {
+    if (!_isEditorReady || MonacoWebView.CoreWebView2 == null) return;
+
+    try
+    {
+      await MonacoWebView.CoreWebView2.ExecuteScriptAsync("if (typeof window.formatCode === 'function') window.formatCode();");
       StatusText.Text = "✓ Code formatted";
       StatusIndicator.Fill = new SolidColorBrush(Colors.Green);
-
-      Task.Delay(2000).ContinueWith(_ => Dispatcher.Invoke(() =>
-      {
-        if (!HasErrors)
-        {
-          StatusText.Text = "✓ Syntax OK";
-        }
-      }));
     }
     catch (Exception ex)
     {
       StatusText.Text = "✗ Format Error";
       StatusIndicator.Fill = new SolidColorBrush(Colors.Orange);
+      System.Diagnostics.Debug.WriteLine($"Format error: {ex.Message}");
+    }
+  }
 
-      ToolTip = $"Format error: {ex.Message}";
+  private async Task ToggleTheme()
+  {
+    if (!_isEditorReady || MonacoWebView.CoreWebView2 == null) return;
 
-      Task.Delay(3000).ContinueWith(_ => Dispatcher.Invoke(() =>
-      {
-        ToolTip = null;
-        if (!HasErrors)
-        {
-          StatusText.Text = "✓ Syntax OK";
-          StatusIndicator.Fill = new SolidColorBrush(Colors.Green);
-        }
-      }));
+    try
+    {
+      _isDarkTheme = !_isDarkTheme;
+      var theme = _isDarkTheme ? "vs-dark" : "vs-light";
+
+      await MonacoWebView.CoreWebView2.ExecuteScriptAsync($"if (typeof window.setTheme === 'function') window.setTheme('{theme}');");
+
+      ThemeToggleButton.Content = _isDarkTheme ? "☀️" : "🌙";
+      ThemeToggleButton.ToolTip = _isDarkTheme ? "Switch to light theme" : "Switch to dark theme";
+    }
+    catch (Exception ex)
+    {
+      System.Diagnostics.Debug.WriteLine($"Theme toggle error: {ex.Message}");
     }
   }
 
@@ -272,35 +473,36 @@ public partial class CodeEditor : UserControl
 
   #region Public Methods
 
-  public void InsertTextAtCursor(string text)
+  public async Task InsertTextAtCursor(string text)
   {
-    if (string.IsNullOrEmpty(text)) return;
+    if (!_isEditorReady || string.IsNullOrEmpty(text) || MonacoWebView.CoreWebView2 == null) return;
 
-    var caretOffset = AvalonEditor.CaretOffset;
-    AvalonEditor.Document.Insert(caretOffset, text);
-    AvalonEditor.Focus();
-  }
-
-  public void SelectAll()
-  {
-    AvalonEditor.SelectAll();
-    AvalonEditor.Focus();
-  }
-
-  public int GetCurrentLineNumber()
-  {
-    return AvalonEditor.Document.GetLineByOffset(AvalonEditor.CaretOffset).LineNumber;
-  }
-
-  public void GoToLine(int lineNumber)
-  {
-    if (lineNumber > 0 && lineNumber <= AvalonEditor.Document.LineCount)
+    try
     {
-      var line = AvalonEditor.Document.GetLineByNumber(lineNumber);
-      AvalonEditor.CaretOffset = line.Offset;
-      AvalonEditor.ScrollToLine(lineNumber);
-      AvalonEditor.Focus();
+      var escapedText = JsonSerializer.Serialize(text);
+      await MonacoWebView.CoreWebView2.ExecuteScriptAsync($"if (typeof window.insertText === 'function') window.insertText({escapedText});");
     }
+    catch (Exception ex)
+    {
+      System.Diagnostics.Debug.WriteLine($"Insert text error: {ex.Message}");
+    }
+  }
+
+  #endregion
+
+  #region Default Code
+
+  private string GetDefaultCode()
+  {
+    return @"// Write your C# transformation code here
+// Available variable: data (DataTable)
+
+// Examples:
+// Filter: data = data.AsEnumerable().Where(row => row.Field<int>(""Age"") > 25).CopyToDataTable();
+// Sort: data.DefaultView.Sort = ""Name ASC""; data = data.DefaultView.ToTable();
+// Add column: data.Columns.Add(""Status"", typeof(string));
+
+";
   }
 
   #endregion

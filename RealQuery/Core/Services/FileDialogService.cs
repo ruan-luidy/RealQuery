@@ -1,10 +1,10 @@
-﻿using System.Windows;
-using WinForms = System.Windows.Forms;
+﻿using Microsoft.Win32;
+using System.IO;
 
 namespace RealQuery.Core.Services;
 
 /// <summary>
-/// Serviço para manipular diálogos de arquivos
+/// Serviço para manipular diálogos de arquivos - SÓ WPF
 /// </summary>
 public class FileDialogService
 {
@@ -13,7 +13,7 @@ public class FileDialogService
   /// </summary>
   public string? OpenFileDialog(string title = "Importar Dados", string filter = "")
   {
-    var dialog = new WinForms.OpenFileDialog
+    var dialog = new OpenFileDialog
     {
       Title = title,
       Filter = string.IsNullOrEmpty(filter) ? GetDefaultImportFilter() : filter,
@@ -23,7 +23,7 @@ public class FileDialogService
       Multiselect = false
     };
 
-    return dialog.ShowDialog() == WinForms.DialogResult.OK ? dialog.FileName : null;
+    return dialog.ShowDialog() == true ? dialog.FileName : null;
   }
 
   /// <summary>
@@ -31,7 +31,7 @@ public class FileDialogService
   /// </summary>
   public string[]? OpenMultipleFilesDialog(string title = "Importar Múltiplos Arquivos", string filter = "")
   {
-    var dialog = new WinForms.OpenFileDialog
+    var dialog = new OpenFileDialog
     {
       Title = title,
       Filter = string.IsNullOrEmpty(filter) ? GetDefaultImportFilter() : filter,
@@ -41,7 +41,7 @@ public class FileDialogService
       Multiselect = true
     };
 
-    return dialog.ShowDialog() == WinForms.DialogResult.OK ? dialog.FileNames : null;
+    return dialog.ShowDialog() == true ? dialog.FileNames : null;
   }
 
   /// <summary>
@@ -49,7 +49,7 @@ public class FileDialogService
   /// </summary>
   public string? SaveFileDialog(string title = "Exportar Dados", string defaultFileName = "", string filter = "")
   {
-    var dialog = new WinForms.SaveFileDialog
+    var dialog = new SaveFileDialog
     {
       Title = title,
       Filter = string.IsNullOrEmpty(filter) ? GetDefaultExportFilter() : filter,
@@ -59,22 +59,7 @@ public class FileDialogService
       FileName = defaultFileName
     };
 
-    return dialog.ShowDialog() == WinForms.DialogResult.OK ? dialog.FileName : null;
-  }
-
-  /// <summary>
-  /// Abre diálogo para selecionar pasta
-  /// </summary>
-  public string? OpenFolderDialog(string title = "Selecionar Pasta")
-  {
-    var dialog = new WinForms.FolderBrowserDialog
-    {
-      Description = title,
-      UseDescriptionForTitle = true,
-      ShowNewFolderButton = true
-    };
-
-    return dialog.ShowDialog() == WinForms.DialogResult.OK ? dialog.SelectedPath : null;
+    return dialog.ShowDialog() == true ? dialog.FileName : null;
   }
 
   /// <summary>
@@ -143,7 +128,6 @@ public class FileDialogService
 
     try
     {
-      // Testar se pode abrir o arquivo para leitura
       using var fs = File.OpenRead(filePath);
       return true;
     }
@@ -199,7 +183,6 @@ public class FileDialogService
 
     try
     {
-      // Testar se pode escrever no diretório
       var testFile = Path.Combine(directory, $"test_{Guid.NewGuid()}.tmp");
       File.WriteAllText(testFile, "test");
       File.Delete(testFile);
