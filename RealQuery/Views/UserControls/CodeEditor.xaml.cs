@@ -2,13 +2,16 @@
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
-using Microsoft.Web.WebView2.Core;
-using System.Text.Json;
+using ICSharpCode.AvalonEdit;
+using ICSharpCode.AvalonEdit.Highlighting;
+using ICSharpCode.AvalonEdit.CodeCompletion;
+using ICSharpCode.AvalonEdit.Document;
+using ICSharpCode.AvalonEdit.Editing;
 
 namespace RealQuery.Views.UserControls;
 
 /// <summary>
-/// CodeEditor com Monaco Editor via WebView2
+/// CodeEditor com AvalonEdit - 100% nativo WPF
 /// </summary>
 public partial class CodeEditor : UserControl
 {
@@ -68,7 +71,6 @@ public partial class CodeEditor : UserControl
 
   #region Fields
 
-  private bool _isEditorReady = false;
   private bool _isUpdatingText = false;
   private bool _isDarkTheme = true;
 
@@ -79,353 +81,85 @@ public partial class CodeEditor : UserControl
   public CodeEditor()
   {
     InitializeComponent();
+    InitializeEditor();
     InitializeEvents();
   }
 
   #endregion
 
-  #region WebView2 & Monaco Initialization
+  #region Editor Initialization
 
-  private async void MonacoWebView_NavigationCompleted(object? sender, CoreWebView2NavigationCompletedEventArgs e)
+  private void InitializeEditor()
   {
-    try
+    // Configurar syntax highlighting para C#
+    AvalonEditor.SyntaxHighlighting = HighlightingManager.Instance.GetDefinition("C#");
+
+    // Configurações básicas
+    AvalonEditor.Options.EnableHyperlinks = false;
+    AvalonEditor.Options.EnableEmailHyperlinks = false;
+    AvalonEditor.Options.ShowSpaces = false;
+    AvalonEditor.Options.ShowTabs = false;
+    AvalonEditor.Options.ShowEndOfLine = false;
+    AvalonEditor.Options.ConvertTabsToSpaces = true;
+    AvalonEditor.Options.IndentationSize = 2;
+    AvalonEditor.Options.CutCopyWholeLine = true;
+    AvalonEditor.Options.EnableVirtualSpace = false;
+    AvalonEditor.Options.EnableTextDragDrop = true;
+    AvalonEditor.Options.HighlightCurrentLine = true;
+
+    // Event handlers para mudanças no texto
+    AvalonEditor.TextChanged += AvalonEditor_TextChanged;
+
+    // Configurar tema inicial
+    ApplyTheme(_isDarkTheme);
+
+    // Configurar código inicial
+    if (string.IsNullOrEmpty(CodeText))
     {
-      if (e.IsSuccess && MonacoWebView.CoreWebView2 != null)
-      {
-        await InitializeMonacoEditor();
-      }
+      CodeText = GetDefaultCode();
     }
-    catch (Exception ex)
-    {
-      System.Diagnostics.Debug.WriteLine($"Monaco initialization error: {ex.Message}");
-      UpdateStatus("✗ Monaco Error", Colors.Red);
-    }
+    AvalonEditor.Text = CodeText;
+
+    // Keyboard shortcuts
+    SetupKeyboardShortcuts();
+
+    UpdateStatus("✓ AvalonEdit Ready", Colors.Green);
   }
 
-  private async Task InitializeMonacoEditor()
+  private void SetupKeyboardShortcuts()
   {
-    try
-    {
-      if (MonacoWebView.CoreWebView2 == null) return;
+    // F5 - Execute
+    AvalonEditor.InputBindings.Add(new KeyBinding(
+        new RelayCommand(_ => ExecuteRequested?.Invoke(this, EventArgs.Empty)),
+        new KeyGesture(Key.F5)));
 
-      // Register JS-C# communication
-      MonacoWebView.CoreWebView2.WebMessageReceived += OnWebMessageReceived;
+    // F7 - Validate
+    AvalonEditor.InputBindings.Add(new KeyBinding(
+        new RelayCommand(_ => ValidateRequested?.Invoke(this, EventArgs.Empty)),
+        new KeyGesture(Key.F7)));
 
-      // Wait for Monaco to load
-      await Task.Delay(1500);
+    // Ctrl+F - Format (vamos implementar básico)
+    AvalonEditor.InputBindings.Add(new KeyBinding(
+        new RelayCommand(_ => FormatCode()),
+        new KeyGesture(Key.F, ModifierKeys.Control)));
 
-      // Set initial code
-      if (!string.IsNullOrEmpty(CodeText))
-      {
-        await SetEditorValueAsync(CodeText);
-      }
-      else
-      {
-        await SetEditorValueAsync(GetDefaultCode());
-      }
-
-      _isEditorReady = true;
-
-      // Setup keyboard shortcuts
-      await MonacoWebView.CoreWebView2.ExecuteScriptAsync(@"
-        try {
-          if (typeof editor !== 'undefined' && editor) {
-            editor.addCommand(monaco.KeyCode.F5, function() {
-              window.chrome.webview.postMessage({ type: 'execute' });
-            });
-
-            editor.addCommand(monaco.KeyCode.F7, function() {
-              window.chrome.webview.postMessage({ type: 'validate' });
-            });
-
-            editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyF, function() {
-              window.chrome.webview.postMessage({ type: 'format' });
-            });
-          }
-        } catch (e) {
-          console.error('Keyboard shortcuts error:', e);
-        }
-      ");
-
-      UpdateStatus("✓ Monaco Ready", Colors.Green);
-    }
-    catch (Exception ex)
-    {
-      UpdateStatus("✗ Monaco Error", Colors.Red);
-      System.Diagnostics.Debug.WriteLine($"Monaco setup error: {ex.Message}");
-    }
-  }
-
-  private string GetMonacoHtml()
-  {
-    return $@"
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset='utf-8'>
-    <style>
-        body {{ margin: 0; padding: 0; overflow: hidden; }}
-        #container {{ height: 100vh; }}
-    </style>
-</head>
-<body>
-    <div id='container'></div>
-    
-    <script src='https://unpkg.com/monaco-editor@latest/min/vs/loader.js'></script>
-    <script>
-        require.config({{ paths: {{ vs: 'https://unpkg.com/monaco-editor@latest/min/vs' }} }});
-        
-        let editor;
-        
-        require(['vs/editor/editor.main'], function() {{
-            try {{
-                editor = monaco.editor.create(document.getElementById('container'), {{
-                    value: '',
-                    language: 'csharp',
-                    theme: '{(_isDarkTheme ? "vs-dark" : "vs-light")}',
-                    fontSize: 14,
-                    fontFamily: 'Consolas, Cascadia Code, Monaco, monospace',
-                    minimap: {{ enabled: true }},
-                    scrollBeyondLastLine: false,
-                    automaticLayout: true,
-                    wordWrap: 'on',
-                    lineNumbers: 'on',
-                    renderWhitespace: 'selection',
-                    bracketMatching: 'always',
-                    autoIndent: 'full',
-                    formatOnPaste: true,
-                    formatOnType: true,
-                    suggest: {{
-                        showKeywords: true,
-                        showSnippets: true
-                    }}
-                }});
-
-                // Listen for content changes (com throttling)
-                let contentChangeTimeout;
-                editor.onDidChangeModelContent(function(e) {{
-                    try {{
-                        // Throttle para evitar muitas mensagens
-                        clearTimeout(contentChangeTimeout);
-                        contentChangeTimeout = setTimeout(() => {{
-                            try {{
-                                const content = editor.getValue() || '';
-                                if (window.chrome && window.chrome.webview) {{
-                                    window.chrome.webview.postMessage({{ 
-                                        type: 'contentChanged', 
-                                        content: content 
-                                    }});
-                                }}
-                            }} catch (innerError) {{
-                                console.error('Content change inner error:', innerError);
-                            }}
-                        }}, 300); // 300ms throttle
-                    }} catch (error) {{
-                        console.error('Content change error:', error);
-                    }}
-                }});
-
-                // Editor ready
-                if (window.chrome && window.chrome.webview) {{
-                    window.chrome.webview.postMessage({{ type: 'ready' }});
-                }}
-            }} catch (error) {{
-                console.error('Monaco initialization error:', error);
-            }}
-        }});
-
-        // Expose functions to C# (mais seguras)
-        window.setEditorValue = function(value) {{
-            try {{
-                if (editor && typeof value === 'string') {{
-                    editor.setValue(value);
-                    return true;
-                }}
-                return false;
-            }} catch (error) {{
-                console.error('SetEditorValue error:', error);
-                return false;
-            }}
-        }};
-
-        window.getEditorValue = function() {{
-            try {{
-                return editor ? (editor.getValue() || '') : '';
-            }} catch (error) {{
-                console.error('GetEditorValue error:', error);
-                return '';
-            }}
-        }};
-
-        window.formatCode = function() {{
-            try {{
-                if (editor) {{
-                    return editor.getAction('editor.action.formatDocument').run();
-                }}
-                return false;
-            }} catch (error) {{
-                console.error('Format error:', error);
-                return false;
-            }}
-        }};
-
-        window.setTheme = function(theme) {{
-            try {{
-                if (editor && monaco && typeof theme === 'string') {{
-                    monaco.editor.setTheme(theme);
-                    return true;
-                }}
-                return false;
-            }} catch (error) {{
-                console.error('Theme error:', error);
-                return false;
-            }}
-        }};
-
-        window.insertText = function(text) {{
-            try {{
-                if (editor && typeof text === 'string') {{
-                    const selection = editor.getSelection();
-                    if (selection) {{
-                        const op = {{ range: selection, text: text, forceMoveMarkers: true }};
-                        editor.executeEdits('insertText', [op]);
-                        editor.focus();
-                        return true;
-                    }}
-                }}
-                return false;
-            }} catch (error) {{
-                console.error('Insert text error:', error);
-                return false;
-            }}
-        }};
-    </script>
-</body>
-</html>";
-  }
-
-  private void OnWebMessageReceived(object? sender, CoreWebView2WebMessageReceivedEventArgs e)
-  {
-    try
-    {
-      var messageString = e.TryGetWebMessageAsString();
-      if (string.IsNullOrEmpty(messageString)) return;
-
-      // Log para debug
-      System.Diagnostics.Debug.WriteLine($"WebMessage received: {messageString}");
-
-      // Parse mais seguro do JSON
-      Dictionary<string, JsonElement>? message = null;
-      try
-      {
-        message = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(messageString);
-      }
-      catch (JsonException jsonEx)
-      {
-        System.Diagnostics.Debug.WriteLine($"JSON parse error: {jsonEx.Message}");
-        return;
-      }
-
-      if (message == null) return;
-
-      // Verificar se tem o campo "type"
-      if (!message.TryGetValue("type", out var typeElement))
-      {
-        System.Diagnostics.Debug.WriteLine("Message without 'type' field");
-        return;
-      }
-
-      var type = typeElement.GetString();
-      if (string.IsNullOrEmpty(type)) return;
-
-      // Dispatch para UI thread de forma mais segura
-      if (Dispatcher.CheckAccess())
-      {
-        ProcessWebMessage(type, message);
-      }
-      else
-      {
-        Dispatcher.BeginInvoke(() =>
-        {
-          try
-          {
-            ProcessWebMessage(type, message);
-          }
-          catch (Exception ex)
-          {
-            System.Diagnostics.Debug.WriteLine($"ProcessWebMessage error: {ex.Message}");
-          }
-        });
-      }
-    }
-    catch (Exception ex)
-    {
-      System.Diagnostics.Debug.WriteLine($"WebMessage handler error: {ex.Message}");
-    }
-  }
-
-  private void ProcessWebMessage(string type, Dictionary<string, JsonElement> message)
-  {
-    try
-    {
-      switch (type)
-      {
-        case "ready":
-          _isEditorReady = true;
-          UpdateStatus("✓ Monaco Ready", Colors.Green);
-          System.Diagnostics.Debug.WriteLine("Monaco editor is ready");
-          break;
-
-        case "contentChanged":
-          if (!_isUpdatingText && message.TryGetValue("content", out var contentElement))
-          {
-            var content = contentElement.GetString() ?? "";
-            _isUpdatingText = true;
-            try
-            {
-              CodeText = content;
-            }
-            finally
-            {
-              _isUpdatingText = false;
-            }
-          }
-          break;
-
-        case "execute":
-          ExecuteRequested?.Invoke(this, EventArgs.Empty);
-          break;
-
-        case "validate":
-          ValidateRequested?.Invoke(this, EventArgs.Empty);
-          break;
-
-        case "format":
-          _ = FormatCodeAsync();
-          break;
-
-        default:
-          System.Diagnostics.Debug.WriteLine($"Unknown message type: {type}");
-          break;
-      }
-    }
-    catch (Exception ex)
-    {
-      System.Diagnostics.Debug.WriteLine($"ProcessWebMessage switch error: {ex.Message}");
-    }
+    // Ctrl+/ - Comment/Uncomment
+    AvalonEditor.InputBindings.Add(new KeyBinding(
+        new RelayCommand(_ => ToggleComment()),
+        new KeyGesture(Key.OemQuestion, ModifierKeys.Control)));
   }
 
   #endregion
 
-  #region Events Initialization
+  #region Event Handlers
 
   private void InitializeEvents()
   {
     // Button events
     ExecuteButton.Click += (s, e) => ExecuteRequested?.Invoke(this, EventArgs.Empty);
     ValidateButton.Click += (s, e) => ValidateRequested?.Invoke(this, EventArgs.Empty);
-    FormatButton.Click += async (s, e) => await FormatCodeAsync();
-    ThemeToggleButton.Click += async (s, e) => await ToggleThemeAsync();
+    FormatButton.Click += (s, e) => FormatCode();
+    ThemeToggleButton.Click += (s, e) => ToggleTheme();
     TemplatesButton.Click += (s, e) => TemplatesButton.ContextMenu.IsOpen = true;
 
     // Template events
@@ -435,22 +169,21 @@ public partial class CodeEditor : UserControl
     GroupTemplate.Click += (s, e) => TemplateRequested?.Invoke(this, "group_aggregate");
     RemoveDuplicatesTemplate.Click += (s, e) => TemplateRequested?.Invoke(this, "remove_duplicates");
     ConvertTypesTemplate.Click += (s, e) => TemplateRequested?.Invoke(this, "convert_types");
-
-    Loaded += OnLoaded;
   }
 
-  private async void OnLoaded(object sender, RoutedEventArgs e)
+  private void AvalonEditor_TextChanged(object? sender, EventArgs e)
   {
-    try
+    if (!_isUpdatingText)
     {
-      await MonacoWebView.EnsureCoreWebView2Async();
-      await Task.Delay(100);
-      MonacoWebView.NavigateToString(GetMonacoHtml());
-    }
-    catch (Exception ex)
-    {
-      System.Diagnostics.Debug.WriteLine($"WebView2 init error: {ex.Message}");
-      UpdateStatus("✗ WebView2 Error", Colors.Red);
+      _isUpdatingText = true;
+      try
+      {
+        CodeText = AvalonEditor.Text;
+      }
+      finally
+      {
+        _isUpdatingText = false;
+      }
     }
   }
 
@@ -460,9 +193,9 @@ public partial class CodeEditor : UserControl
 
   private static void OnCodeTextChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
   {
-    if (d is CodeEditor editor)
+    if (d is CodeEditor editor && !editor._isUpdatingText)
     {
-      _ = editor.UpdateEditorTextAsync((string)e.NewValue);
+      editor.UpdateEditorText((string)e.NewValue);
     }
   }
 
@@ -482,14 +215,14 @@ public partial class CodeEditor : UserControl
     }
   }
 
-  private async Task UpdateEditorTextAsync(string newText)
+  private void UpdateEditorText(string newText)
   {
-    if (!_isEditorReady || _isUpdatingText) return;
+    if (_isUpdatingText) return;
 
+    _isUpdatingText = true;
     try
     {
-      _isUpdatingText = true;
-      await SetEditorValueAsync(newText ?? "");
+      AvalonEditor.Text = newText ?? "";
     }
     finally
     {
@@ -525,46 +258,56 @@ public partial class CodeEditor : UserControl
 
   #endregion
 
-  #region Monaco Operations
+  #region Editor Operations
 
-  private async Task SetEditorValueAsync(string value)
+  private void FormatCode()
   {
-    if (!_isEditorReady || MonacoWebView.CoreWebView2 == null) return;
-
     try
     {
-      var escapedValue = JsonSerializer.Serialize(value);
-      await MonacoWebView.CoreWebView2.ExecuteScriptAsync($"if (typeof window.setEditorValue === 'function') {{ window.setEditorValue({escapedValue}); }}");
-    }
-    catch (Exception ex)
-    {
-      System.Diagnostics.Debug.WriteLine($"SetEditorValue error: {ex.Message}");
-    }
-  }
+      // Implementação básica de formatação
+      var text = AvalonEditor.Text;
 
-  private async Task<string> GetEditorValueAsync()
-  {
-    if (!_isEditorReady || MonacoWebView.CoreWebView2 == null) return "";
+      // Remover linhas vazias excessivas
+      text = System.Text.RegularExpressions.Regex.Replace(text, @"\n\s*\n\s*\n", "\n\n");
 
-    try
-    {
-      var result = await MonacoWebView.CoreWebView2.ExecuteScriptAsync("typeof window.getEditorValue === 'function' ? JSON.stringify(window.getEditorValue()) : '\"\"'");
-      return JsonSerializer.Deserialize<string>(result) ?? "";
-    }
-    catch (Exception ex)
-    {
-      System.Diagnostics.Debug.WriteLine($"GetEditorValue error: {ex.Message}");
-      return "";
-    }
-  }
+      // Normalizar indentação (básico)
+      var lines = text.Split('\n');
+      var formattedLines = new List<string>();
+      int indentLevel = 0;
 
-  private async Task FormatCodeAsync()
-  {
-    if (!_isEditorReady || MonacoWebView.CoreWebView2 == null) return;
+      foreach (var line in lines)
+      {
+        var trimmedLine = line.Trim();
+        if (string.IsNullOrEmpty(trimmedLine))
+        {
+          formattedLines.Add("");
+          continue;
+        }
 
-    try
-    {
-      await MonacoWebView.CoreWebView2.ExecuteScriptAsync("if (typeof window.formatCode === 'function') { window.formatCode(); }");
+        // Diminuir indent para }
+        if (trimmedLine.StartsWith("}"))
+          indentLevel = Math.Max(0, indentLevel - 1);
+
+        // Aplicar indentação
+        var indent = new string(' ', indentLevel * 2);
+        formattedLines.Add(indent + trimmedLine);
+
+        // Aumentar indent para {
+        if (trimmedLine.EndsWith("{"))
+          indentLevel++;
+      }
+
+      _isUpdatingText = true;
+      try
+      {
+        AvalonEditor.Text = string.Join("\n", formattedLines);
+        CodeText = AvalonEditor.Text;
+      }
+      finally
+      {
+        _isUpdatingText = false;
+      }
+
       UpdateStatus("✓ Code formatted", Colors.Green);
     }
     catch (Exception ex)
@@ -574,23 +317,80 @@ public partial class CodeEditor : UserControl
     }
   }
 
-  private async Task ToggleThemeAsync()
+  private void ToggleComment()
   {
-    if (!_isEditorReady || MonacoWebView.CoreWebView2 == null) return;
-
     try
     {
-      _isDarkTheme = !_isDarkTheme;
-      var theme = _isDarkTheme ? "vs-dark" : "vs-light";
+      var textArea = AvalonEditor.TextArea;
+      var selection = textArea.Selection;
 
-      await MonacoWebView.CoreWebView2.ExecuteScriptAsync($"if (typeof window.setTheme === 'function') {{ window.setTheme('{theme}'); }}");
+      if (selection.IsEmpty)
+      {
+        // Comentar linha atual
+        var line = AvalonEditor.Document.GetLineByOffset(textArea.Caret.Offset);
+        var lineText = AvalonEditor.Document.GetText(line);
 
-      ThemeToggleButton.Content = _isDarkTheme ? "☀️" : "🌙";
-      ThemeToggleButton.ToolTip = _isDarkTheme ? "Switch to light theme" : "Switch to dark theme";
+        if (lineText.Trim().StartsWith("//"))
+        {
+          // Descomentar
+          var index = lineText.IndexOf("//");
+          if (index >= 0)
+          {
+            var newText = lineText.Remove(index, 2);
+            AvalonEditor.Document.Replace(line, newText);
+          }
+        }
+        else
+        {
+          // Comentar
+          var leadingWhitespace = lineText.Length - lineText.TrimStart().Length;
+          AvalonEditor.Document.Insert(line.Offset + leadingWhitespace, "// ");
+        }
+      }
+      else
+      {
+        // Comentar seleção
+        var selectedText = AvalonEditor.SelectedText;
+        var commentedText = "/* " + selectedText + " */";
+        AvalonEditor.SelectedText = commentedText;
+      }
     }
     catch (Exception ex)
     {
-      System.Diagnostics.Debug.WriteLine($"Theme toggle error: {ex.Message}");
+      System.Diagnostics.Debug.WriteLine($"Toggle comment error: {ex.Message}");
+    }
+  }
+
+  private void ToggleTheme()
+  {
+    _isDarkTheme = !_isDarkTheme;
+    ApplyTheme(_isDarkTheme);
+
+    ThemeToggleButton.Content = _isDarkTheme ? "☀️" : "🌙";
+    ThemeToggleButton.ToolTip = _isDarkTheme ? "Switch to light theme" : "Switch to dark theme";
+  }
+
+  private void ApplyTheme(bool isDark)
+  {
+    try
+    {
+      // As cores já vêm do HandyControl theme
+      // Só precisamos ajustar algumas específicas do AvalonEdit se necessário
+
+      if (isDark)
+      {
+        // Tema escuro já é aplicado pelo HandyControl
+        AvalonEditor.LineNumbersForeground = new SolidColorBrush(Color.FromRgb(128, 128, 128));
+      }
+      else
+      {
+        // Tema claro
+        AvalonEditor.LineNumbersForeground = new SolidColorBrush(Color.FromRgb(64, 64, 64));
+      }
+    }
+    catch (Exception ex)
+    {
+      System.Diagnostics.Debug.WriteLine($"Theme error: {ex.Message}");
     }
   }
 
@@ -598,19 +398,54 @@ public partial class CodeEditor : UserControl
 
   #region Public Methods
 
-  public async Task InsertTextAtCursorAsync(string text)
+  public void InsertTextAtCursor(string text)
   {
-    if (!_isEditorReady || string.IsNullOrEmpty(text) || MonacoWebView.CoreWebView2 == null) return;
+    if (string.IsNullOrEmpty(text)) return;
 
     try
     {
-      var escapedText = JsonSerializer.Serialize(text);
-      await MonacoWebView.CoreWebView2.ExecuteScriptAsync($"if (typeof window.insertText === 'function') {{ window.insertText({escapedText}); }}");
+      var textArea = AvalonEditor.TextArea;
+      var offset = textArea.Caret.Offset;
+      AvalonEditor.Document.Insert(offset, text);
+      textArea.Caret.Offset = offset + text.Length;
+      AvalonEditor.Focus();
     }
     catch (Exception ex)
     {
       System.Diagnostics.Debug.WriteLine($"Insert text error: {ex.Message}");
     }
+  }
+
+  public void SelectAll()
+  {
+    AvalonEditor.SelectAll();
+  }
+
+  public void Copy()
+  {
+    AvalonEditor.Copy();
+  }
+
+  public void Cut()
+  {
+    AvalonEditor.Cut();
+  }
+
+  public void Paste()
+  {
+    AvalonEditor.Paste();
+  }
+
+  public void Undo()
+  {
+    if (AvalonEditor.CanUndo)
+      AvalonEditor.Undo();
+  }
+
+  public void Redo()
+  {
+    if (AvalonEditor.CanRedo)
+      AvalonEditor.Redo();
   }
 
   #endregion
@@ -628,6 +463,31 @@ public partial class CodeEditor : UserControl
 // Add column: data.Columns.Add(""Status"", typeof(string));
 
 ";
+  }
+
+  #endregion
+
+  #region RelayCommand Helper
+
+  private class RelayCommand : ICommand
+  {
+    private readonly Action<object?> _execute;
+    private readonly Func<object?, bool>? _canExecute;
+
+    public RelayCommand(Action<object?> execute, Func<object?, bool>? canExecute = null)
+    {
+      _execute = execute ?? throw new ArgumentNullException(nameof(execute));
+      _canExecute = canExecute;
+    }
+
+    public event EventHandler? CanExecuteChanged
+    {
+      add { CommandManager.RequerySuggested += value; }
+      remove { CommandManager.RequerySuggested -= value; }
+    }
+
+    public bool CanExecute(object? parameter) => _canExecute?.Invoke(parameter) ?? true;
+    public void Execute(object? parameter) => _execute(parameter);
   }
 
   #endregion
