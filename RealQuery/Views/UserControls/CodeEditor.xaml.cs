@@ -201,16 +201,25 @@ public partial class CodeEditor : UserControl
                     }}
                 }});
 
-                // Listen for content changes
+                // Listen for content changes (com throttling)
+                let contentChangeTimeout;
                 editor.onDidChangeModelContent(function(e) {{
                     try {{
-                        const content = editor.getValue();
-                        if (window.chrome && window.chrome.webview) {{
-                            window.chrome.webview.postMessage({{ 
-                                type: 'contentChanged', 
-                                content: content 
-                            }});
-                        }}
+                        // Throttle para evitar muitas mensagens
+                        clearTimeout(contentChangeTimeout);
+                        contentChangeTimeout = setTimeout(() => {{
+                            try {{
+                                const content = editor.getValue() || '';
+                                if (window.chrome && window.chrome.webview) {{
+                                    window.chrome.webview.postMessage({{ 
+                                        type: 'contentChanged', 
+                                        content: content 
+                                    }});
+                                }}
+                            }} catch (innerError) {{
+                                console.error('Content change inner error:', innerError);
+                            }}
+                        }}, 300); // 300ms throttle
                     }} catch (error) {{
                         console.error('Content change error:', error);
                     }}
@@ -225,20 +234,23 @@ public partial class CodeEditor : UserControl
             }}
         }});
 
-        // Expose functions to C#
+        // Expose functions to C# (mais seguras)
         window.setEditorValue = function(value) {{
             try {{
-                if (editor) {{
-                    editor.setValue(value || '');
+                if (editor && typeof value === 'string') {{
+                    editor.setValue(value);
+                    return true;
                 }}
+                return false;
             }} catch (error) {{
                 console.error('SetEditorValue error:', error);
+                return false;
             }}
         }};
 
         window.getEditorValue = function() {{
             try {{
-                return editor ? editor.getValue() : '';
+                return editor ? (editor.getValue() || '') : '';
             }} catch (error) {{
                 console.error('GetEditorValue error:', error);
                 return '';
@@ -248,33 +260,43 @@ public partial class CodeEditor : UserControl
         window.formatCode = function() {{
             try {{
                 if (editor) {{
-                    editor.getAction('editor.action.formatDocument').run();
+                    return editor.getAction('editor.action.formatDocument').run();
                 }}
+                return false;
             }} catch (error) {{
                 console.error('Format error:', error);
+                return false;
             }}
         }};
 
         window.setTheme = function(theme) {{
             try {{
-                if (editor && monaco) {{
+                if (editor && monaco && typeof theme === 'string') {{
                     monaco.editor.setTheme(theme);
+                    return true;
                 }}
+                return false;
             }} catch (error) {{
                 console.error('Theme error:', error);
+                return false;
             }}
         }};
 
         window.insertText = function(text) {{
             try {{
-                if (editor && text) {{
+                if (editor && typeof text === 'string') {{
                     const selection = editor.getSelection();
-                    const op = {{ range: selection, text: text, forceMoveMarkers: true }};
-                    editor.executeEdits('insertText', [op]);
-                    editor.focus();
+                    if (selection) {{
+                        const op = {{ range: selection, text: text, forceMoveMarkers: true }};
+                        editor.executeEdits('insertText', [op]);
+                        editor.focus();
+                        return true;
+                    }}
                 }}
+                return false;
             }} catch (error) {{
                 console.error('Insert text error:', error);
+                return false;
             }}
         }};
     </script>
@@ -289,55 +311,107 @@ public partial class CodeEditor : UserControl
       var messageString = e.TryGetWebMessageAsString();
       if (string.IsNullOrEmpty(messageString)) return;
 
-      var message = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(messageString);
+      // Log para debug
+      System.Diagnostics.Debug.WriteLine($"WebMessage received: {messageString}");
+
+      // Parse mais seguro do JSON
+      Dictionary<string, JsonElement>? message = null;
+      try
+      {
+        message = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(messageString);
+      }
+      catch (JsonException jsonEx)
+      {
+        System.Diagnostics.Debug.WriteLine($"JSON parse error: {jsonEx.Message}");
+        return;
+      }
+
       if (message == null) return;
 
-      var type = message.GetValueOrDefault("type").GetString();
+      // Verificar se tem o campo "type"
+      if (!message.TryGetValue("type", out var typeElement))
+      {
+        System.Diagnostics.Debug.WriteLine("Message without 'type' field");
+        return;
+      }
+
+      var type = typeElement.GetString();
       if (string.IsNullOrEmpty(type)) return;
 
-      Dispatcher.BeginInvoke(() =>
+      // Dispatch para UI thread de forma mais segura
+      if (Dispatcher.CheckAccess())
       {
-        try
+        ProcessWebMessage(type, message);
+      }
+      else
+      {
+        Dispatcher.BeginInvoke(() =>
         {
-          switch (type)
+          try
           {
-            case "ready":
-              _isEditorReady = true;
-              UpdateStatus("✓ Monaco Ready", Colors.Green);
-              break;
-
-            case "contentChanged":
-              if (!_isUpdatingText && message.ContainsKey("content"))
-              {
-                var content = message["content"].GetString() ?? "";
-                _isUpdatingText = true;
-                CodeText = content;
-                _isUpdatingText = false;
-              }
-              break;
-
-            case "execute":
-              ExecuteRequested?.Invoke(this, EventArgs.Empty);
-              break;
-
-            case "validate":
-              ValidateRequested?.Invoke(this, EventArgs.Empty);
-              break;
-
-            case "format":
-              _ = FormatCodeAsync();
-              break;
+            ProcessWebMessage(type, message);
           }
-        }
-        catch (Exception ex)
-        {
-          System.Diagnostics.Debug.WriteLine($"WebMessage processing error: {ex.Message}");
-        }
-      });
+          catch (Exception ex)
+          {
+            System.Diagnostics.Debug.WriteLine($"ProcessWebMessage error: {ex.Message}");
+          }
+        });
+      }
     }
     catch (Exception ex)
     {
-      System.Diagnostics.Debug.WriteLine($"WebMessage error: {ex.Message}");
+      System.Diagnostics.Debug.WriteLine($"WebMessage handler error: {ex.Message}");
+    }
+  }
+
+  private void ProcessWebMessage(string type, Dictionary<string, JsonElement> message)
+  {
+    try
+    {
+      switch (type)
+      {
+        case "ready":
+          _isEditorReady = true;
+          UpdateStatus("✓ Monaco Ready", Colors.Green);
+          System.Diagnostics.Debug.WriteLine("Monaco editor is ready");
+          break;
+
+        case "contentChanged":
+          if (!_isUpdatingText && message.TryGetValue("content", out var contentElement))
+          {
+            var content = contentElement.GetString() ?? "";
+            _isUpdatingText = true;
+            try
+            {
+              CodeText = content;
+            }
+            finally
+            {
+              _isUpdatingText = false;
+            }
+          }
+          break;
+
+        case "execute":
+          ExecuteRequested?.Invoke(this, EventArgs.Empty);
+          break;
+
+        case "validate":
+          ValidateRequested?.Invoke(this, EventArgs.Empty);
+          break;
+
+        case "format":
+          _ = FormatCodeAsync();
+          break;
+
+        default:
+          System.Diagnostics.Debug.WriteLine($"Unknown message type: {type}");
+          break;
+      }
+    }
+    catch (Exception ex)
+    {
+      System.Diagnostics.Debug.WriteLine($"ProcessWebMessage switch error: {ex.Message}");
     }
   }
 
