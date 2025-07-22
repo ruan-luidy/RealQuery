@@ -2,16 +2,17 @@
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
-using ICSharpCode.AvalonEdit;
-using ICSharpCode.AvalonEdit.Highlighting;
-using ICSharpCode.AvalonEdit.CodeCompletion;
-using ICSharpCode.AvalonEdit.Document;
-using ICSharpCode.AvalonEdit.Editing;
+using AvalonEditB;
+using AvalonEditB.Highlighting;
+using AvalonEditB.CodeCompletion;
+using AvalonEditB.Document;
+using AvalonEditB.Editing;
+
 
 namespace RealQuery.Views.UserControls;
 
 /// <summary>
-/// CodeEditor com AvalonEdit - 100% nativo WPF
+/// CodeEditor com AvalonEditB - Versão melhorada
 /// </summary>
 public partial class CodeEditor : UserControl
 {
@@ -73,6 +74,7 @@ public partial class CodeEditor : UserControl
 
   private bool _isUpdatingText = false;
   private bool _isDarkTheme = true;
+  private CompletionWindow? _completionWindow;
 
   #endregion
 
@@ -91,39 +93,56 @@ public partial class CodeEditor : UserControl
 
   private void InitializeEditor()
   {
-    // Configurar syntax highlighting para C#
-    AvalonEditor.SyntaxHighlighting = HighlightingManager.Instance.GetDefinition("C#");
-
-    // Configurações básicas
-    AvalonEditor.Options.EnableHyperlinks = false;
-    AvalonEditor.Options.EnableEmailHyperlinks = false;
-    AvalonEditor.Options.ShowSpaces = false;
-    AvalonEditor.Options.ShowTabs = false;
-    AvalonEditor.Options.ShowEndOfLine = false;
-    AvalonEditor.Options.ConvertTabsToSpaces = true;
-    AvalonEditor.Options.IndentationSize = 2;
-    AvalonEditor.Options.CutCopyWholeLine = true;
-    AvalonEditor.Options.EnableVirtualSpace = false;
-    AvalonEditor.Options.EnableTextDragDrop = true;
-    AvalonEditor.Options.HighlightCurrentLine = true;
-
-    // Event handlers para mudanças no texto
-    AvalonEditor.TextChanged += AvalonEditor_TextChanged;
-
-    // Configurar tema inicial
-    ApplyTheme(_isDarkTheme);
-
-    // Configurar código inicial
-    if (string.IsNullOrEmpty(CodeText))
+    try
     {
-      CodeText = GetDefaultCode();
+      // Configurar syntax highlighting para C#
+      AvalonEditor.SyntaxHighlighting = HighlightingManager.Instance.GetDefinition("C#");
+
+      // Configurações básicas do AvalonEditB
+      AvalonEditor.Options.EnableHyperlinks = false;
+      AvalonEditor.Options.EnableEmailHyperlinks = false;
+      AvalonEditor.Options.ShowSpaces = false;
+      AvalonEditor.Options.ShowTabs = false;
+      AvalonEditor.Options.ShowEndOfLine = false;
+      AvalonEditor.Options.ConvertTabsToSpaces = true;
+      AvalonEditor.Options.IndentationSize = 2;
+      AvalonEditor.Options.CutCopyWholeLine = true;
+      AvalonEditor.Options.EnableVirtualSpace = false;
+      AvalonEditor.Options.EnableTextDragDrop = true;
+      AvalonEditor.Options.HighlightCurrentLine = true;
+
+      // AvalonEditB específico - configurações extras
+      AvalonEditor.Options.EnableRectangularSelection = true;
+      AvalonEditor.Options.ShowColumnRuler = false;
+
+      // Event handlers
+      AvalonEditor.TextChanged += AvalonEditor_TextChanged;
+      AvalonEditor.TextArea.KeyDown += TextArea_KeyDown;
+
+      // Auto-completion setup para AvalonEditB
+      AvalonEditor.TextArea.TextEntered += TextArea_TextEntered;
+      AvalonEditor.TextArea.TextEntering += TextArea_TextEntering;
+
+      // Configurar tema inicial
+      ApplyTheme(_isDarkTheme);
+
+      // Configurar código inicial
+      if (string.IsNullOrEmpty(CodeText))
+      {
+        CodeText = GetDefaultCode();
+      }
+      AvalonEditor.Text = CodeText;
+
+      // Keyboard shortcuts
+      SetupKeyboardShortcuts();
+
+      UpdateStatus("✓ AvalonEditB Ready", Colors.Green);
     }
-    AvalonEditor.Text = CodeText;
-
-    // Keyboard shortcuts
-    SetupKeyboardShortcuts();
-
-    UpdateStatus("✓ AvalonEdit Ready", Colors.Green);
+    catch (Exception ex)
+    {
+      UpdateStatus("✗ Editor Error", Colors.Red);
+      System.Diagnostics.Debug.WriteLine($"AvalonEditB initialization error: {ex.Message}");
+    }
   }
 
   private void SetupKeyboardShortcuts()
@@ -138,7 +157,7 @@ public partial class CodeEditor : UserControl
         new RelayCommand(_ => ValidateRequested?.Invoke(this, EventArgs.Empty)),
         new KeyGesture(Key.F7)));
 
-    // Ctrl+F - Format (vamos implementar básico)
+    // Ctrl+F - Format
     AvalonEditor.InputBindings.Add(new KeyBinding(
         new RelayCommand(_ => FormatCode()),
         new KeyGesture(Key.F, ModifierKeys.Control)));
@@ -147,6 +166,64 @@ public partial class CodeEditor : UserControl
     AvalonEditor.InputBindings.Add(new KeyBinding(
         new RelayCommand(_ => ToggleComment()),
         new KeyGesture(Key.OemQuestion, ModifierKeys.Control)));
+
+    // Ctrl+Space - IntelliSense (AvalonEditB)
+    AvalonEditor.InputBindings.Add(new KeyBinding(
+        new RelayCommand(_ => ShowAutoCompletion()),
+        new KeyGesture(Key.Space, ModifierKeys.Control)));
+  }
+
+  #endregion
+
+  #region Auto-completion (AvalonEditB específico)
+
+  private void TextArea_TextEntering(object? sender, TextCompositionEventArgs e)
+  {
+    if (e.Text.Length > 0 && _completionWindow != null)
+    {
+      if (!char.IsLetterOrDigit(e.Text[0]))
+      {
+        _completionWindow.CompletionList.RequestInsertion(e);
+      }
+    }
+  }
+
+  private void TextArea_TextEntered(object? sender, TextCompositionEventArgs e)
+  {
+    // Auto-trigger completion em alguns casos
+    if (e.Text == ".")
+    {
+      ShowAutoCompletion();
+    }
+  }
+
+  private void ShowAutoCompletion()
+  {
+    try
+    {
+      _completionWindow = new CompletionWindow(AvalonEditor.TextArea);
+      var data = _completionWindow.CompletionList.CompletionData;
+
+      // Adicionar sugestões básicas para C# + DataTable
+      data.Add(new MyCompletionData("data", "Current DataTable"));
+      data.Add(new MyCompletionData("data.Rows", "All rows in the table"));
+      data.Add(new MyCompletionData("data.Columns", "All columns in the table"));
+      data.Add(new MyCompletionData("data.AsEnumerable()", "Convert to LINQ enumerable"));
+      data.Add(new MyCompletionData("row.Field<T>(\"column\")", "Get typed field value"));
+      data.Add(new MyCompletionData("data.Select()", "Select with expression"));
+      data.Add(new MyCompletionData("Where()", "Filter rows"));
+      data.Add(new MyCompletionData("OrderBy()", "Sort ascending"));
+      data.Add(new MyCompletionData("OrderByDescending()", "Sort descending"));
+      data.Add(new MyCompletionData("GroupBy()", "Group data"));
+      data.Add(new MyCompletionData("CopyToDataTable()", "Convert back to DataTable"));
+
+      _completionWindow.Show();
+      _completionWindow.Closed += (s, e) => _completionWindow = null;
+    }
+    catch (Exception ex)
+    {
+      System.Diagnostics.Debug.WriteLine($"Auto-completion error: {ex.Message}");
+    }
   }
 
   #endregion
@@ -184,6 +261,16 @@ public partial class CodeEditor : UserControl
       {
         _isUpdatingText = false;
       }
+    }
+  }
+
+  private void TextArea_KeyDown(object? sender, KeyEventArgs e)
+  {
+    // Interceptar teclas especiais se necessário
+    if (e.Key == Key.Escape && _completionWindow != null)
+    {
+      _completionWindow.Close();
+      e.Handled = true;
     }
   }
 
@@ -264,13 +351,9 @@ public partial class CodeEditor : UserControl
   {
     try
     {
-      // Implementação básica de formatação
       var text = AvalonEditor.Text;
-
-      // Remover linhas vazias excessivas
       text = System.Text.RegularExpressions.Regex.Replace(text, @"\n\s*\n\s*\n", "\n\n");
 
-      // Normalizar indentação (básico)
       var lines = text.Split('\n');
       var formattedLines = new List<string>();
       int indentLevel = 0;
@@ -284,15 +367,12 @@ public partial class CodeEditor : UserControl
           continue;
         }
 
-        // Diminuir indent para }
         if (trimmedLine.StartsWith("}"))
           indentLevel = Math.Max(0, indentLevel - 1);
 
-        // Aplicar indentação
         var indent = new string(' ', indentLevel * 2);
         formattedLines.Add(indent + trimmedLine);
 
-        // Aumentar indent para {
         if (trimmedLine.EndsWith("{"))
           indentLevel++;
       }
@@ -326,13 +406,11 @@ public partial class CodeEditor : UserControl
 
       if (selection.IsEmpty)
       {
-        // Comentar linha atual
         var line = AvalonEditor.Document.GetLineByOffset(textArea.Caret.Offset);
         var lineText = AvalonEditor.Document.GetText(line);
 
         if (lineText.Trim().StartsWith("//"))
         {
-          // Descomentar
           var index = lineText.IndexOf("//");
           if (index >= 0)
           {
@@ -342,14 +420,12 @@ public partial class CodeEditor : UserControl
         }
         else
         {
-          // Comentar
           var leadingWhitespace = lineText.Length - lineText.TrimStart().Length;
           AvalonEditor.Document.Insert(line.Offset + leadingWhitespace, "// ");
         }
       }
       else
       {
-        // Comentar seleção
         var selectedText = AvalonEditor.SelectedText;
         var commentedText = "/* " + selectedText + " */";
         AvalonEditor.SelectedText = commentedText;
@@ -374,17 +450,12 @@ public partial class CodeEditor : UserControl
   {
     try
     {
-      // As cores já vêm do HandyControl theme
-      // Só precisamos ajustar algumas específicas do AvalonEdit se necessário
-
       if (isDark)
       {
-        // Tema escuro já é aplicado pelo HandyControl
         AvalonEditor.LineNumbersForeground = new SolidColorBrush(Color.FromRgb(128, 128, 128));
       }
       else
       {
-        // Tema claro
         AvalonEditor.LineNumbersForeground = new SolidColorBrush(Color.FromRgb(64, 64, 64));
       }
     }
@@ -416,37 +487,12 @@ public partial class CodeEditor : UserControl
     }
   }
 
-  public void SelectAll()
-  {
-    AvalonEditor.SelectAll();
-  }
-
-  public void Copy()
-  {
-    AvalonEditor.Copy();
-  }
-
-  public void Cut()
-  {
-    AvalonEditor.Cut();
-  }
-
-  public void Paste()
-  {
-    AvalonEditor.Paste();
-  }
-
-  public void Undo()
-  {
-    if (AvalonEditor.CanUndo)
-      AvalonEditor.Undo();
-  }
-
-  public void Redo()
-  {
-    if (AvalonEditor.CanRedo)
-      AvalonEditor.Redo();
-  }
+  public void SelectAll() => AvalonEditor.SelectAll();
+  public void Copy() => AvalonEditor.Copy();
+  public void Cut() => AvalonEditor.Cut();
+  public void Paste() => AvalonEditor.Paste();
+  public void Undo() { if (AvalonEditor.CanUndo) AvalonEditor.Undo(); }
+  public void Redo() { if (AvalonEditor.CanRedo) AvalonEditor.Redo(); }
 
   #endregion
 
@@ -456,6 +502,7 @@ public partial class CodeEditor : UserControl
   {
     return @"// Write your C# transformation code here
 // Available variable: data (DataTable)
+// Press Ctrl+Space for auto-completion
 
 // Examples:
 // Filter: data = data.AsEnumerable().Where(row => row.Field<int>(""Age"") > 25).CopyToDataTable();
@@ -463,6 +510,30 @@ public partial class CodeEditor : UserControl
 // Add column: data.Columns.Add(""Status"", typeof(string));
 
 ";
+  }
+
+  #endregion
+
+  #region Completion Data Helper
+
+  private class MyCompletionData : ICompletionData
+  {
+    public MyCompletionData(string text, string description = "")
+    {
+      Text = text;
+      Description = description;
+    }
+
+    public ImageSource? Image => null;
+    public string Text { get; }
+    public object Content => Text;
+    public object Description { get; }
+    public double Priority => 0;
+
+    public void Complete(TextArea textArea, ISegment completionSegment, EventArgs insertionRequestEventArgs)
+    {
+      textArea.Document.Replace(completionSegment, Text);
+    }
   }
 
   #endregion

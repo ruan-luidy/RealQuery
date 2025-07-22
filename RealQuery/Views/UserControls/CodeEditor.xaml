@@ -2,7 +2,7 @@
   x:Class="RealQuery.Views.UserControls.CodeEditor"
   xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
   xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-  xmlns:avalonEdit="http://icsharpcode.net/sharpdevelop/avalonedit"
+  xmlns:avalonEditB="http://icsharpcode.net/sharpdevelop/avalonedit"
   xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
   xmlns:hc="https://handyorg.github.io/handycontrol"
   xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -25,7 +25,7 @@
       BorderThickness="0,0,0,1">
 
       <hc:UniformSpacingPanel Orientation="Horizontal" Spacing="10">
-        <TextBlock Style="{StaticResource TextBlockTitle}" Text="C# Code Editor" />
+        <TextBlock Style="{StaticResource TextBlockTitle}" Text="C# Code Editor (AvalonEditB)" />
 
         <Separator />
 
@@ -86,27 +86,27 @@
             x:Name="StatusText"
             VerticalAlignment="Center"
             FontSize="11"
-            Text="✓ Ready" />
+            Text="✓ Ready (AvalonEditB)" />
         </StackPanel>
       </hc:UniformSpacingPanel>
     </Border>
 
-    <!--  AvalonEdit Editor  -->
+    <!--  AvalonEditB Editor  -->
     <Border
       Grid.Row="1"
       BorderBrush="{DynamicResource BorderBrush}"
       BorderThickness="1,0,1,0">
 
-      <avalonEdit:TextEditor
+      <avalonEditB:TextEditor
         x:Name="AvalonEditor"
         Background="{DynamicResource RegionBrush}"
-        FontFamily="Cascadia Code"
+        FontFamily="Cascadia Code,Consolas,Courier New"
         FontSize="15"
         Foreground="{DynamicResource PrimaryTextBrush}"
         HorizontalScrollBarVisibility="Auto"
         LineNumbersForeground="{DynamicResource ThirdlyTextBrush}"
         ShowLineNumbers="True"
-        SyntaxHighlighting="C#"
+        SyntaxHighlighting="csharp"
         VerticalScrollBarVisibility="Auto"
         WordWrap="False" />
 
