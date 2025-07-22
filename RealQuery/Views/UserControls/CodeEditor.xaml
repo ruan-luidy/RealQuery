@@ -100,8 +100,8 @@
       <avalonEdit:TextEditor
         x:Name="AvalonEditor"
         Background="{DynamicResource RegionBrush}"
-        FontFamily="Consolas, Cascadia Code, Monaco, monospace"
-        FontSize="14"
+        FontFamily="Cascadia Code"
+        FontSize="15"
         Foreground="{DynamicResource PrimaryTextBrush}"
         HorizontalScrollBarVisibility="Auto"
         LineNumbersForeground="{DynamicResource ThirdlyTextBrush}"
