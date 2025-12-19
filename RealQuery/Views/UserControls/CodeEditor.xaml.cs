@@ -2,17 +2,17 @@
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
-using AvalonEditB;
-using AvalonEditB.Highlighting;
-using AvalonEditB.CodeCompletion;
-using AvalonEditB.Document;
-using AvalonEditB.Editing;
+using ICSharpCode.AvalonEdit;
+using ICSharpCode.AvalonEdit.Highlighting;
+using ICSharpCode.AvalonEdit.CodeCompletion;
+using ICSharpCode.AvalonEdit.Document;
+using ICSharpCode.AvalonEdit.Editing;
 
 
 namespace RealQuery.Views.UserControls;
 
 /// <summary>
-/// CodeEditor com AvalonEditB - Versão melhorada
+/// CodeEditor com AvalonEdit
 /// </summary>
 public partial class CodeEditor : UserControl
 {
@@ -95,10 +95,13 @@ public partial class CodeEditor : UserControl
   {
     try
     {
+      // Carregar TrueBlue theme
+      LoadTrueBlueTheme();
+
       // Configurar syntax highlighting para C#
       AvalonEditor.SyntaxHighlighting = HighlightingManager.Instance.GetDefinition("C#");
 
-      // Configurações básicas do AvalonEditB
+      // Configurações básicas do AvalonEdit
       AvalonEditor.Options.EnableHyperlinks = false;
       AvalonEditor.Options.EnableEmailHyperlinks = false;
       AvalonEditor.Options.ShowSpaces = false;
@@ -110,8 +113,6 @@ public partial class CodeEditor : UserControl
       AvalonEditor.Options.EnableVirtualSpace = false;
       AvalonEditor.Options.EnableTextDragDrop = true;
       AvalonEditor.Options.HighlightCurrentLine = true;
-
-      // AvalonEditB específico - configurações extras
       AvalonEditor.Options.EnableRectangularSelection = true;
       AvalonEditor.Options.ShowColumnRuler = false;
 
@@ -119,7 +120,7 @@ public partial class CodeEditor : UserControl
       AvalonEditor.TextChanged += AvalonEditor_TextChanged;
       AvalonEditor.TextArea.KeyDown += TextArea_KeyDown;
 
-      // Auto-completion setup para AvalonEditB
+      // Auto-completion setup
       AvalonEditor.TextArea.TextEntered += TextArea_TextEntered;
       AvalonEditor.TextArea.TextEntering += TextArea_TextEntering;
 
@@ -136,12 +137,12 @@ public partial class CodeEditor : UserControl
       // Keyboard shortcuts
       SetupKeyboardShortcuts();
 
-      UpdateStatus("✓ AvalonEditB Ready", Colors.Green);
+      UpdateStatus("✓ AvalonEdit Ready", Colors.Green);
     }
     catch (Exception ex)
     {
       UpdateStatus("✗ Editor Error", Colors.Red);
-      System.Diagnostics.Debug.WriteLine($"AvalonEditB initialization error: {ex.Message}");
+      System.Diagnostics.Debug.WriteLine($"AvalonEdit initialization error: {ex.Message}");
     }
   }
 
@@ -167,7 +168,7 @@ public partial class CodeEditor : UserControl
         new RelayCommand(_ => ToggleComment()),
         new KeyGesture(Key.OemQuestion, ModifierKeys.Control)));
 
-    // Ctrl+Space - IntelliSense (AvalonEditB)
+    // Ctrl+Space - IntelliSense
     AvalonEditor.InputBindings.Add(new KeyBinding(
         new RelayCommand(_ => ShowAutoCompletion()),
         new KeyGesture(Key.Space, ModifierKeys.Control)));
@@ -175,7 +176,37 @@ public partial class CodeEditor : UserControl
 
   #endregion
 
-  #region Auto-completion (AvalonEditB específico)
+  #region Theme Loading
+
+  private void LoadTrueBlueTheme()
+  {
+    try
+    {
+      var themePath = System.IO.Path.Combine(
+        AppDomain.CurrentDomain.BaseDirectory,
+        "Resources",
+        "TrueBlue.xshd");
+
+      if (System.IO.File.Exists(themePath))
+      {
+        using (var stream = System.IO.File.OpenRead(themePath))
+        using (var reader = System.Xml.XmlReader.Create(stream))
+        {
+          var themeDefinition = ICSharpCode.AvalonEdit.Highlighting.Xshd.HighlightingLoader.LoadXshd(reader);
+          var highlighting = ICSharpCode.AvalonEdit.Highlighting.Xshd.HighlightingLoader.Load(themeDefinition, HighlightingManager.Instance);
+          HighlightingManager.Instance.RegisterHighlighting("C#", new[] { ".cs" }, highlighting);
+        }
+      }
+    }
+    catch (Exception ex)
+    {
+      System.Diagnostics.Debug.WriteLine($"Failed to load TrueBlue theme: {ex.Message}");
+    }
+  }
+
+  #endregion
+
+  #region Auto-completion
 
   private void TextArea_TextEntering(object? sender, TextCompositionEventArgs e)
   {
@@ -190,7 +221,7 @@ public partial class CodeEditor : UserControl
 
   private void TextArea_TextEntered(object? sender, TextCompositionEventArgs e)
   {
-    // Auto-trigger completion em alguns casos
+    // Auto-trigger completion quando digita '.'
     if (e.Text == ".")
     {
       ShowAutoCompletion();
@@ -201,21 +232,62 @@ public partial class CodeEditor : UserControl
   {
     try
     {
-      _completionWindow = new CompletionWindow(AvalonEditor.TextArea);
+      var textArea = AvalonEditor.TextArea;
+      var offset = textArea.Caret.Offset;
+
+      // Verificar contexto (o que está antes do cursor)
+      var wordBeforeDot = GetWordBeforeCursor(offset);
+
+      _completionWindow = new CompletionWindow(textArea);
       var data = _completionWindow.CompletionList.CompletionData;
 
-      // Adicionar sugestões básicas para C# + DataTable
-      data.Add(new MyCompletionData("data", "Current DataTable"));
-      data.Add(new MyCompletionData("data.Rows", "All rows in the table"));
-      data.Add(new MyCompletionData("data.Columns", "All columns in the table"));
-      data.Add(new MyCompletionData("data.AsEnumerable()", "Convert to LINQ enumerable"));
-      data.Add(new MyCompletionData("row.Field<T>(\"column\")", "Get typed field value"));
-      data.Add(new MyCompletionData("data.Select()", "Select with expression"));
-      data.Add(new MyCompletionData("Where()", "Filter rows"));
-      data.Add(new MyCompletionData("OrderBy()", "Sort ascending"));
-      data.Add(new MyCompletionData("OrderByDescending()", "Sort descending"));
-      data.Add(new MyCompletionData("GroupBy()", "Group data"));
-      data.Add(new MyCompletionData("CopyToDataTable()", "Convert back to DataTable"));
+      // Sugestões baseadas no contexto
+      if (wordBeforeDot == "data")
+      {
+        // Membros do DataTable
+        data.Add(new MyCompletionData("Rows", "All rows in the table"));
+        data.Add(new MyCompletionData("Columns", "All columns in the table"));
+        data.Add(new MyCompletionData("AsEnumerable()", "Convert to LINQ enumerable"));
+        data.Add(new MyCompletionData("Select()", "Select with expression"));
+        data.Add(new MyCompletionData("DefaultView", "Default view of the table"));
+        data.Add(new MyCompletionData("NewRow()", "Create a new row"));
+        data.Add(new MyCompletionData("Clear()", "Clear all rows"));
+        data.Add(new MyCompletionData("Clone()", "Clone table structure"));
+        data.Add(new MyCompletionData("Copy()", "Copy table with data"));
+      }
+      else if (wordBeforeDot == "row")
+      {
+        // Membros do DataRow
+        data.Add(new MyCompletionData("Field<T>(\"column\")", "Get typed field value"));
+        data.Add(new MyCompletionData("SetField(\"column\", value)", "Set field value"));
+        data.Add(new MyCompletionData("ItemArray", "All values in row"));
+        data.Add(new MyCompletionData("Table", "Parent table"));
+      }
+      else if (wordBeforeDot.EndsWith("AsEnumerable()") || wordBeforeDot.Contains("Where") || wordBeforeDot.Contains("Select"))
+      {
+        // LINQ methods
+        data.Add(new MyCompletionData("Where()", "Filter rows"));
+        data.Add(new MyCompletionData("Select()", "Project rows"));
+        data.Add(new MyCompletionData("OrderBy()", "Sort ascending"));
+        data.Add(new MyCompletionData("OrderByDescending()", "Sort descending"));
+        data.Add(new MyCompletionData("GroupBy()", "Group rows"));
+        data.Add(new MyCompletionData("First()", "Get first element"));
+        data.Add(new MyCompletionData("FirstOrDefault()", "Get first or default"));
+        data.Add(new MyCompletionData("Count()", "Count elements"));
+        data.Add(new MyCompletionData("Any()", "Check if any exists"));
+        data.Add(new MyCompletionData("CopyToDataTable()", "Convert back to DataTable"));
+      }
+      else
+      {
+        // Sugestões gerais
+        data.Add(new MyCompletionData("data", "Current DataTable"));
+        data.Add(new MyCompletionData("row", "Current DataRow"));
+        data.Add(new MyCompletionData("var", "Variable declaration"));
+        data.Add(new MyCompletionData("foreach", "Foreach loop"));
+        data.Add(new MyCompletionData("if", "If statement"));
+        data.Add(new MyCompletionData("new", "New instance"));
+        data.Add(new MyCompletionData("return", "Return statement"));
+      }
 
       _completionWindow.Show();
       _completionWindow.Closed += (s, e) => _completionWindow = null;
@@ -223,6 +295,36 @@ public partial class CodeEditor : UserControl
     catch (Exception ex)
     {
       System.Diagnostics.Debug.WriteLine($"Auto-completion error: {ex.Message}");
+    }
+  }
+
+  private string GetWordBeforeCursor(int offset)
+  {
+    try
+    {
+      var document = AvalonEditor.Document;
+      if (offset <= 0) return "";
+
+      // Pegar os últimos 50 caracteres antes do cursor
+      var start = Math.Max(0, offset - 50);
+      var text = document.GetText(start, offset - start);
+
+      // Encontrar a última palavra antes do ponto
+      var lastDotIndex = text.LastIndexOf('.');
+      if (lastDotIndex >= 0)
+      {
+        // Pegar tudo antes do último ponto
+        text = text.Substring(0, lastDotIndex);
+      }
+
+      // Remover espaços e pegar última palavra
+      text = text.TrimEnd();
+      var match = System.Text.RegularExpressions.Regex.Match(text, @"(\w+(?:\.\w+|\(\))*)$");
+      return match.Success ? match.Value : "";
+    }
+    catch
+    {
+      return "";
     }
   }
 
@@ -532,6 +634,7 @@ public partial class CodeEditor : UserControl
 
     public void Complete(TextArea textArea, ISegment completionSegment, EventArgs insertionRequestEventArgs)
     {
+      // Simplesmente substituir o segmento pelo texto completo
       textArea.Document.Replace(completionSegment, Text);
     }
   }

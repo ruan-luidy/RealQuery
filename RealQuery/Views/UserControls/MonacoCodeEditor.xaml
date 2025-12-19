@@ -1,12 +1,12 @@
-﻿<UserControl
-  x:Class="RealQuery.Views.UserControls.CodeEditor"
+<UserControl
+  x:Class="RealQuery.Views.UserControls.MonacoCodeEditor"
   xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
   xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-  xmlns:avalonEdit="http://icsharpcode.net/sharpdevelop/avalonedit"
   xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
   xmlns:hc="https://handyorg.github.io/handycontrol"
   xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
   xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+  xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
   d:DesignHeight="450"
   d:DesignWidth="800"
   mc:Ignorable="d">
@@ -21,11 +21,11 @@
     <Border
       Grid.Row="0"
       Padding="10,8"
-      BorderThickness="0"
-      Style="{StaticResource BorderRegion}">
+      Background="{DynamicResource SecondaryRegionBrush}"
+      BorderBrush="{DynamicResource BorderBrush}"
+      BorderThickness="0,0,0,1">
 
       <hc:UniformSpacingPanel Orientation="Horizontal" Spacing="10">
-        <TextBlock Style="{StaticResource TextBlockTitle}" Text="C# Code Editor" />
 
         <Separator />
 
@@ -52,9 +52,9 @@
         <Button
           x:Name="FormatButton"
           Style="{StaticResource ButtonDefault}"
-          ToolTip="Format code (Ctrl+F)">
+          ToolTip="Format code (Shift+Alt+F)">
           <hc:UniformSpacingPanel Spacing="4">
-            <iconPacks:PackIconPhosphorIcons Kind="TextAlignCenterBold" />
+            <iconPacks:PackIconPhosphorIcons Kind="TextAlignLeft" />
             <TextBlock Text="Format" />
           </hc:UniformSpacingPanel>
         </Button>
@@ -63,10 +63,12 @@
           x:Name="TemplatesButton"
           Style="{StaticResource ButtonDefault}"
           ToolTip="Insert code template">
-          <hc:UniformSpacingPanel Spacing="4">
-            <iconPacks:PackIconPhosphorIcons Kind="ClipboardTextBold" />
-            <TextBlock Text="Templates" />
-          </hc:UniformSpacingPanel>
+          <Button.Content>
+            <hc:UniformSpacingPanel Spacing="4">
+              <iconPacks:PackIconPhosphorIcons Kind="ClipboardTextBold" />
+              <TextBlock Text="Templates" />
+            </hc:UniformSpacingPanel>
+          </Button.Content>
           <Button.ContextMenu>
             <ContextMenu x:Name="TemplatesMenu">
               <MenuItem x:Name="FilterTemplate" Header="Filter Rows">
@@ -126,29 +128,18 @@
             x:Name="StatusText"
             VerticalAlignment="Center"
             FontSize="11"
-            Text="✓ Ready" />
+            Text="⏳ Loading Monaco..." />
         </StackPanel>
       </hc:UniformSpacingPanel>
     </Border>
 
-    <!--  AvalonEdit Editor  -->
+    <!--  Monaco Editor via WebView2  -->
     <Border
       Grid.Row="1"
       BorderBrush="{DynamicResource BorderBrush}"
-      BorderThickness="0,1,0,0">
+      BorderThickness="1,0,1,0">
 
-      <avalonEdit:TextEditor
-        x:Name="AvalonEditor"
-        Background="{DynamicResource RegionBrush}"
-        FontFamily="Cascadia Code,Consolas,Courier New"
-        FontSize="15"
-        Foreground="{DynamicResource PrimaryTextBrush}"
-        HorizontalScrollBarVisibility="Auto"
-        LineNumbersForeground="{DynamicResource ThirdlyTextBrush}"
-        ShowLineNumbers="True"
-        SyntaxHighlighting="csharp"
-        VerticalScrollBarVisibility="Auto"
-        WordWrap="False" />
+      <wv2:WebView2 x:Name="MonacoWebView" />
 
     </Border>
 
