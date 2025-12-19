@@ -109,7 +109,7 @@
         Margin="0,4,0,0"
         HorizontalAlignment="Center"
         FontSize="12"
-        Foreground="{DynamicResource ThirdTextBrush}"
+        Foreground="{DynamicResource SecondaryTextBrush}"
         Text="Load data and add transformations to build your pipeline" />
     </StackPanel>
   </Grid>
