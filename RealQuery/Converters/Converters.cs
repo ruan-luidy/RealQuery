@@ -126,3 +126,22 @@ public class StepStatusToColorConverter : IValueConverter
     throw new NotImplementedException();
   }
 }
+
+/// <summary>
+/// Conversor Int para Visibility (inverso - mostra quando count = 0)
+/// </summary>
+public class Int2VisibilityReConverter : IValueConverter
+{
+  public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+  {
+    if (value is int count)
+      return count == 0 ? Visibility.Visible : Visibility.Collapsed;
+
+    return Visibility.Collapsed;
+  }
+
+  public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+  {
+    throw new NotImplementedException();
+  }
+}

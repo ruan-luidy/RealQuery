@@ -23,7 +23,7 @@
       Padding="10,8"
       Background="{DynamicResource SecondaryRegionBrush}"
       BorderBrush="{DynamicResource BorderBrush}"
-      BorderThickness="0,0,0,1">
+      BorderThickness="1,0,1,1">
 
       <hc:UniformSpacingPanel Orientation="Horizontal" Spacing="10">
 

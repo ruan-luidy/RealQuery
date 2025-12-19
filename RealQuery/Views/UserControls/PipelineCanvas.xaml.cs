@@ -1,28 +1,36 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
+﻿using System.Windows.Controls;
+using RealQuery.Core.Models;
 
-namespace RealQuery.Views.UserControls
+namespace RealQuery.Views.UserControls;
+
+/// <summary>
+/// Canvas que exibe os transformation steps em sequência
+/// </summary>
+public partial class PipelineCanvas : UserControl
 {
-  /// <summary>
-  /// Interaction logic for PipelineCanvas.xaml
-  /// </summary>
-  public partial class PipelineCanvas : UserControl
+  #region Events
+
+  public event EventHandler<TransformationStep>? StepSelected;
+  public event EventHandler<TransformationStep>? StepDeleted;
+
+  #endregion
+
+  public PipelineCanvas()
   {
-    public PipelineCanvas()
-    {
-      InitializeComponent();
-    }
+    InitializeComponent();
   }
+
+  #region Event Handlers
+
+  private void TransformationCard_StepClicked(object sender, TransformationStep e)
+  {
+    StepSelected?.Invoke(this, e);
+  }
+
+  private void TransformationCard_DeleteRequested(object sender, TransformationStep e)
+  {
+    StepDeleted?.Invoke(this, e);
+  }
+
+  #endregion
 }

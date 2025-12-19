@@ -1,5 +1,6 @@
 ﻿using System.Windows;
 using RealQuery.ViewModels;
+using RealQuery.Core.Models;
 
 namespace RealQuery.Views.Windows;
 
@@ -66,4 +67,36 @@ public partial class MainWindow : HandyControl.Controls.Window
 
     System.Diagnostics.Debug.WriteLine("MainWindow loaded with Roslyn + AvalonEdit integration");
   }
+
+  #region PipelineCanvas Event Handlers
+
+  private void PipelineCanvas_StepSelected(object? sender, TransformationStep e)
+  {
+    if (_viewModel != null)
+    {
+      _viewModel.SelectedStep = e;
+
+      // Se o step tem código, carrega no editor
+      if (!string.IsNullOrWhiteSpace(e.Code))
+      {
+        _viewModel.CSharpCode = e.Code;
+      }
+    }
+  }
+
+  private void PipelineCanvas_StepDeleted(object? sender, TransformationStep e)
+  {
+    if (_viewModel?.TransformationSteps != null)
+    {
+      _viewModel.TransformationSteps.Remove(e);
+
+      // Renumerar os steps
+      for (int i = 0; i < _viewModel.TransformationSteps.Count; i++)
+      {
+        _viewModel.TransformationSteps[i].StepNumber = i + 1;
+      }
+    }
+  }
+
+  #endregion
 }

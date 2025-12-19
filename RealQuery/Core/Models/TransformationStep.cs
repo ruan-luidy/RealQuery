@@ -141,6 +141,7 @@ public partial class TransformationStep : ObservableObject
 
   /// <summary>
   /// Gera descrição baseada no código
+  /// Prioriza o primeiro comentário, senão usa a primeira linha de código
   /// </summary>
   private static string GenerateCodeDescription(string code)
   {
@@ -148,10 +149,32 @@ public partial class TransformationStep : ObservableObject
       return "Empty transformation";
 
     var lines = code.Split('\n', StringSplitOptions.RemoveEmptyEntries)
-                   .Where(line => !line.Trim().StartsWith("//"))
-                   .Take(2);
+                   .Select(line => line.Trim())
+                   .Where(line => !string.IsNullOrWhiteSpace(line))
+                   .ToList();
 
-    return string.Join("; ", lines).Trim();
+    if (lines.Count == 0)
+      return "Empty transformation";
+
+    // Primeiro tenta pegar o primeiro comentário
+    var firstComment = lines.FirstOrDefault(line => line.StartsWith("//"));
+    if (firstComment != null)
+    {
+      // Remove o // e espaços
+      return firstComment.TrimStart('/', ' ').Trim();
+    }
+
+    // Se não tiver comentário, pega a primeira linha de código
+    var firstCodeLine = lines.FirstOrDefault(line => !line.StartsWith("//"));
+    if (firstCodeLine != null)
+    {
+      // Limita a 80 caracteres para não ficar muito longo
+      return firstCodeLine.Length > 80
+        ? firstCodeLine.Substring(0, 77) + "..."
+        : firstCodeLine;
+    }
+
+    return "Empty transformation";
   }
 
   /// <summary>

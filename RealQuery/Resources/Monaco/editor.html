@@ -1,217 +1,265 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Monaco Editor</title>
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            overflow: hidden;
-            background: #1e1e1e;
-        }
-        #container {
-            width: 100vw;
-            height: 100vh;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Monaco Editor</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: #1e1e1e;
+    }
+
+    #container {
+      width: 100vw;
+      height: 100vh;
+    }
+  </style>
 </head>
 <body>
-    <div id="container"></div>
+  <div id="container"></div>
 
-    <!-- Monaco Editor from CDN -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
-    <script>
-        let editor;
-        let isUpdatingFromWPF = false;
+  <!-- Monaco Editor from CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
+  <script>
+    let editor;
+    let isUpdatingFromWPF = false;
 
-        require.config({
-            paths: {
-                'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs'
-            }
-        });
+    require.config({
+      paths: {
+        'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs'
+      }
+    });
 
-        require(['vs/editor/editor.main'], function() {
-            // Configurar IntelliSense para C# com DataTable
-            monaco.languages.registerCompletionItemProvider('csharp', {
-                provideCompletionItems: function(model, position) {
-                    const word = model.getWordUntilPosition(position);
-                    const range = {
-                        startLineNumber: position.lineNumber,
-                        endLineNumber: position.lineNumber,
-                        startColumn: word.startColumn,
-                        endColumn: word.endColumn
-                    };
+    require(['vs/editor/editor.main'], function () {
+      // Configurar IntelliSense para C# com DataTable
+      monaco.languages.registerCompletionItemProvider('csharp', {
+        provideCompletionItems: function (model, position) {
+          const word = model.getWordUntilPosition(position);
+          const range = {
+            startLineNumber: position.lineNumber,
+            endLineNumber: position.lineNumber,
+            startColumn: word.startColumn,
+            endColumn: word.endColumn
+          };
 
-                    // Pegar texto antes do cursor
-                    const textBeforeCursor = model.getValueInRange({
-                        startLineNumber: position.lineNumber,
-                        startColumn: 1,
-                        endLineNumber: position.lineNumber,
-                        endColumn: position.column
-                    });
+          // Pegar texto antes do cursor
+          const textBeforeCursor = model.getValueInRange({
+            startLineNumber: position.lineNumber,
+            startColumn: 1,
+            endLineNumber: position.lineNumber,
+            endColumn: position.column
+          });
 
-                    const suggestions = [];
+          const suggestions = [];
 
-                    // DataTable members
-                    if (textBeforeCursor.endsWith('data.')) {
-                        suggestions.push(
-                            { label: 'Rows', kind: monaco.languages.CompletionItemKind.Property, insertText: 'Rows', detail: 'DataRowCollection', documentation: 'All rows in the table', range: range },
-                            { label: 'Columns', kind: monaco.languages.CompletionItemKind.Property, insertText: 'Columns', detail: 'DataColumnCollection', documentation: 'All columns in the table', range: range },
-                            { label: 'AsEnumerable', kind: monaco.languages.CompletionItemKind.Method, insertText: 'AsEnumerable()', detail: 'IEnumerable<DataRow>', documentation: 'Convert to LINQ enumerable', range: range },
-                            { label: 'Select', kind: monaco.languages.CompletionItemKind.Method, insertText: 'Select("${1:expression}")', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, detail: 'DataRow[]', documentation: 'Select with expression', range: range },
-                            { label: 'DefaultView', kind: monaco.languages.CompletionItemKind.Property, insertText: 'DefaultView', detail: 'DataView', documentation: 'Default view of the table', range: range },
-                            { label: 'NewRow', kind: monaco.languages.CompletionItemKind.Method, insertText: 'NewRow()', detail: 'DataRow', documentation: 'Create a new row', range: range },
-                            { label: 'Clear', kind: monaco.languages.CompletionItemKind.Method, insertText: 'Clear()', detail: 'void', documentation: 'Clear all rows', range: range },
-                            { label: 'Clone', kind: monaco.languages.CompletionItemKind.Method, insertText: 'Clone()', detail: 'DataTable', documentation: 'Clone table structure', range: range },
-                            { label: 'Copy', kind: monaco.languages.CompletionItemKind.Method, insertText: 'Copy()', detail: 'DataTable', documentation: 'Copy table with data', range: range }
-                        );
-                    }
-                    // DataRow members
-                    else if (textBeforeCursor.endsWith('row.')) {
-                        suggestions.push(
-                            { label: 'Field', kind: monaco.languages.CompletionItemKind.Method, insertText: 'Field<${1:T}>("${2:column}")', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, detail: 'T', documentation: 'Get typed field value', range: range },
-                            { label: 'SetField', kind: monaco.languages.CompletionItemKind.Method, insertText: 'SetField("${1:column}", ${2:value})', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, detail: 'void', documentation: 'Set field value', range: range },
-                            { label: 'ItemArray', kind: monaco.languages.CompletionItemKind.Property, insertText: 'ItemArray', detail: 'object[]', documentation: 'All values in row', range: range },
-                            { label: 'Table', kind: monaco.languages.CompletionItemKind.Property, insertText: 'Table', detail: 'DataTable', documentation: 'Parent table', range: range }
-                        );
-                    }
-                    // LINQ methods
-                    else if (textBeforeCursor.includes('.Where(') || textBeforeCursor.includes('.Select(') || textBeforeCursor.includes('.AsEnumerable()')) {
-                        suggestions.push(
-                            { label: 'Where', kind: monaco.languages.CompletionItemKind.Method, insertText: 'Where(${1:row} => ${2:condition})', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, detail: 'IEnumerable<DataRow>', documentation: 'Filter rows', range: range },
-                            { label: 'Select', kind: monaco.languages.CompletionItemKind.Method, insertText: 'Select(${1:row} => ${2:value})', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, detail: 'IEnumerable<T>', documentation: 'Project rows', range: range },
-                            { label: 'OrderBy', kind: monaco.languages.CompletionItemKind.Method, insertText: 'OrderBy(${1:row} => ${2:key})', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, detail: 'IOrderedEnumerable<DataRow>', documentation: 'Sort ascending', range: range },
-                            { label: 'OrderByDescending', kind: monaco.languages.CompletionItemKind.Method, insertText: 'OrderByDescending(${1:row} => ${2:key})', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, detail: 'IOrderedEnumerable<DataRow>', documentation: 'Sort descending', range: range },
-                            { label: 'GroupBy', kind: monaco.languages.CompletionItemKind.Method, insertText: 'GroupBy(${1:row} => ${2:key})', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, detail: 'IEnumerable<IGrouping<TKey, DataRow>>', documentation: 'Group rows', range: range },
-                            { label: 'First', kind: monaco.languages.CompletionItemKind.Method, insertText: 'First()', detail: 'DataRow', documentation: 'Get first element', range: range },
-                            { label: 'FirstOrDefault', kind: monaco.languages.CompletionItemKind.Method, insertText: 'FirstOrDefault()', detail: 'DataRow', documentation: 'Get first or default', range: range },
-                            { label: 'Count', kind: monaco.languages.CompletionItemKind.Method, insertText: 'Count()', detail: 'int', documentation: 'Count elements', range: range },
-                            { label: 'Any', kind: monaco.languages.CompletionItemKind.Method, insertText: 'Any()', detail: 'bool', documentation: 'Check if any exists', range: range },
-                            { label: 'ToList', kind: monaco.languages.CompletionItemKind.Method, insertText: 'ToList()', detail: 'List<DataRow>', documentation: 'Convert to list', range: range },
-                            { label: 'CopyToDataTable', kind: monaco.languages.CompletionItemKind.Method, insertText: 'CopyToDataTable()', detail: 'DataTable', documentation: 'Convert back to DataTable', range: range }
-                        );
-                    }
-                    // General suggestions
-                    else {
-                        suggestions.push(
-                            { label: 'data', kind: monaco.languages.CompletionItemKind.Variable, insertText: 'data', detail: 'DataTable', documentation: 'Current DataTable', range: range },
-                            { label: 'row', kind: monaco.languages.CompletionItemKind.Variable, insertText: 'row', detail: 'DataRow', documentation: 'Current DataRow', range: range },
-                            { label: 'var', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'var ${1:name} = ${2:value};', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, detail: 'keyword', documentation: 'Variable declaration', range: range },
-                            { label: 'foreach', kind: monaco.languages.CompletionItemKind.Snippet, insertText: 'foreach (var ${1:item} in ${2:collection})\n{\n\t${3}\n}', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, detail: 'snippet', documentation: 'Foreach loop', range: range },
-                            { label: 'if', kind: monaco.languages.CompletionItemKind.Snippet, insertText: 'if (${1:condition})\n{\n\t${2}\n}', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, detail: 'snippet', documentation: 'If statement', range: range }
-                        );
-                    }
+          // DataTable members - Check if we're after 'data.'
+          const dataMatch = textBeforeCursor.match(/\bdata\.(\w*)$/);
+          if (dataMatch) {
+            suggestions.push(
+              { label: 'Rows', kind: monaco.languages.CompletionItemKind.Property, insertText: 'Rows', detail: 'DataRowCollection', documentation: 'All rows in the table', range: range },
+              { label: 'Columns', kind: monaco.languages.CompletionItemKind.Property, insertText: 'Columns', detail: 'DataColumnCollection', documentation: 'All columns in the table', range: range },
+              { label: 'AsEnumerable', kind: monaco.languages.CompletionItemKind.Method, insertText: 'AsEnumerable()', detail: 'IEnumerable<DataRow>', documentation: 'Convert to LINQ enumerable', range: range },
+              { label: 'Select', kind: monaco.languages.CompletionItemKind.Method, insertText: 'Select("${1:expression}")', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, detail: 'DataRow[]', documentation: 'Select with expression', range: range },
+              { label: 'DefaultView', kind: monaco.languages.CompletionItemKind.Property, insertText: 'DefaultView', detail: 'DataView', documentation: 'Default view of the table', range: range },
+              { label: 'NewRow', kind: monaco.languages.CompletionItemKind.Method, insertText: 'NewRow()', detail: 'DataRow', documentation: 'Create a new row', range: range },
+              { label: 'Clear', kind: monaco.languages.CompletionItemKind.Method, insertText: 'Clear()', detail: 'void', documentation: 'Clear all rows', range: range },
+              { label: 'Clone', kind: monaco.languages.CompletionItemKind.Method, insertText: 'Clone()', detail: 'DataTable', documentation: 'Clone table structure', range: range },
+              { label: 'Copy', kind: monaco.languages.CompletionItemKind.Method, insertText: 'Copy()', detail: 'DataTable', documentation: 'Copy table with data', range: range }
+            );
+          }
+          // DataColumnCollection members - Check if we're after 'data.Columns.'
+          else if (textBeforeCursor.match(/\bdata\.Columns\.(\w*)$/)) {
+            suggestions.push(
+              { label: 'Add', kind: monaco.languages.CompletionItemKind.Method, insertText: 'Add("${1:columnName}", typeof(${2:string}))', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, detail: 'DataColumn', documentation: 'Add a new column', range: range },
+              { label: 'Remove', kind: monaco.languages.CompletionItemKind.Method, insertText: 'Remove("${1:columnName}")', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, detail: 'void', documentation: 'Remove a column', range: range },
+              { label: 'Clear', kind: monaco.languages.CompletionItemKind.Method, insertText: 'Clear()', detail: 'void', documentation: 'Remove all columns', range: range },
+              { label: 'Contains', kind: monaco.languages.CompletionItemKind.Method, insertText: 'Contains("${1:columnName}")', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, detail: 'bool', documentation: 'Check if column exists', range: range },
+              { label: 'Count', kind: monaco.languages.CompletionItemKind.Property, insertText: 'Count', detail: 'int', documentation: 'Number of columns', range: range }
+            );
+          }
+          // DataRowCollection members - Check if we're after 'data.Rows.'
+          else if (textBeforeCursor.match(/\bdata\.Rows\.(\w*)$/)) {
+            suggestions.push(
+              { label: 'Add', kind: monaco.languages.CompletionItemKind.Method, insertText: 'Add(${1:rowValues})', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, detail: 'DataRow', documentation: 'Add a new row', range: range },
+              { label: 'Remove', kind: monaco.languages.CompletionItemKind.Method, insertText: 'Remove(${1:row})', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, detail: 'void', documentation: 'Remove a row', range: range },
+              { label: 'RemoveAt', kind: monaco.languages.CompletionItemKind.Method, insertText: 'RemoveAt(${1:index})', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, detail: 'void', documentation: 'Remove row at index', range: range },
+              { label: 'Clear', kind: monaco.languages.CompletionItemKind.Method, insertText: 'Clear()', detail: 'void', documentation: 'Remove all rows', range: range },
+              { label: 'Find', kind: monaco.languages.CompletionItemKind.Method, insertText: 'Find(${1:key})', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, detail: 'DataRow', documentation: 'Find row by primary key', range: range },
+              { label: 'Count', kind: monaco.languages.CompletionItemKind.Property, insertText: 'Count', detail: 'int', documentation: 'Number of rows', range: range }
+            );
+          }
+          // DataView members - Check if we're after 'data.DefaultView.' or any variable that is a DataView
+          else if (textBeforeCursor.match(/\b(data\.DefaultView|view)\.(\w*)$/)) {
+            suggestions.push(
+              { label: 'Sort', kind: monaco.languages.CompletionItemKind.Property, insertText: 'Sort = "${1:ColumnName} ${2:ASC}"', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, detail: 'string', documentation: 'Sort expression (e.g., "Name ASC, Age DESC")', range: range },
+              { label: 'RowFilter', kind: monaco.languages.CompletionItemKind.Property, insertText: 'RowFilter = "${1:expression}"', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, detail: 'string', documentation: 'Filter expression', range: range },
+              { label: 'ToTable', kind: monaco.languages.CompletionItemKind.Method, insertText: 'ToTable()', detail: 'DataTable', documentation: 'Convert DataView to DataTable', range: range },
+              { label: 'Count', kind: monaco.languages.CompletionItemKind.Property, insertText: 'Count', detail: 'int', documentation: 'Number of rows in view', range: range }
+            );
+          }
+          // DataRow members - Check if we're after 'row.'
+          else if (textBeforeCursor.match(/\brow\.(\w*)$/)) {
+            suggestions.push(
+              { label: 'Field', kind: monaco.languages.CompletionItemKind.Method, insertText: 'Field<${1:T}>("${2:column}")', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, detail: 'T', documentation: 'Get typed field value', range: range },
+              { label: 'SetField', kind: monaco.languages.CompletionItemKind.Method, insertText: 'SetField("${1:column}", ${2:value})', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, detail: 'void', documentation: 'Set field value', range: range },
+              { label: 'ItemArray', kind: monaco.languages.CompletionItemKind.Property, insertText: 'ItemArray', detail: 'object[]', documentation: 'All values in row', range: range },
+              { label: 'Table', kind: monaco.languages.CompletionItemKind.Property, insertText: 'Table', detail: 'DataTable', documentation: 'Parent table', range: range }
+            );
+          }
+          // LINQ methods - Check if we're chaining after AsEnumerable or other LINQ methods
+          // Match pattern like: .AsEnumerable(). or .Where(...). or any method call followed by dot
+          else if (textBeforeCursor.match(/\)\s*\.(\w*)$/) &&
+            (textBeforeCursor.includes('.AsEnumerable(') ||
+              textBeforeCursor.includes('.Where(') ||
+              textBeforeCursor.includes('.Select(') ||
+              textBeforeCursor.includes('.OrderBy(') ||
+              textBeforeCursor.includes('.GroupBy('))) {
+            suggestions.push(
+              { label: 'Where', kind: monaco.languages.CompletionItemKind.Method, insertText: 'Where(${1:row} => ${2:condition})', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, detail: 'IEnumerable<DataRow>', documentation: 'Filter rows', range: range },
+              { label: 'Select', kind: monaco.languages.CompletionItemKind.Method, insertText: 'Select(${1:row} => ${2:value})', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, detail: 'IEnumerable<T>', documentation: 'Project rows', range: range },
+              { label: 'OrderBy', kind: monaco.languages.CompletionItemKind.Method, insertText: 'OrderBy(${1:row} => ${2:key})', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, detail: 'IOrderedEnumerable<DataRow>', documentation: 'Sort ascending', range: range },
+              { label: 'OrderByDescending', kind: monaco.languages.CompletionItemKind.Method, insertText: 'OrderByDescending(${1:row} => ${2:key})', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, detail: 'IOrderedEnumerable<DataRow>', documentation: 'Sort descending', range: range },
+              { label: 'GroupBy', kind: monaco.languages.CompletionItemKind.Method, insertText: 'GroupBy(${1:row} => ${2:key})', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, detail: 'IEnumerable<IGrouping<TKey, DataRow>>', documentation: 'Group rows', range: range },
+              { label: 'First', kind: monaco.languages.CompletionItemKind.Method, insertText: 'First()', detail: 'DataRow', documentation: 'Get first element', range: range },
+              { label: 'FirstOrDefault', kind: monaco.languages.CompletionItemKind.Method, insertText: 'FirstOrDefault()', detail: 'DataRow', documentation: 'Get first or default', range: range },
+              { label: 'Count', kind: monaco.languages.CompletionItemKind.Method, insertText: 'Count()', detail: 'int', documentation: 'Count elements', range: range },
+              { label: 'Any', kind: monaco.languages.CompletionItemKind.Method, insertText: 'Any()', detail: 'bool', documentation: 'Check if any exists', range: range },
+              { label: 'ToList', kind: monaco.languages.CompletionItemKind.Method, insertText: 'ToList()', detail: 'List<DataRow>', documentation: 'Convert to list', range: range },
+              { label: 'ToArray', kind: monaco.languages.CompletionItemKind.Method, insertText: 'ToArray()', detail: 'DataRow[]', documentation: 'Convert to array', range: range },
+              { label: 'Skip', kind: monaco.languages.CompletionItemKind.Method, insertText: 'Skip(${1:count})', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, detail: 'IEnumerable<DataRow>', documentation: 'Skip N elements', range: range },
+              { label: 'Take', kind: monaco.languages.CompletionItemKind.Method, insertText: 'Take(${1:count})', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, detail: 'IEnumerable<DataRow>', documentation: 'Take N elements', range: range },
+              { label: 'Distinct', kind: monaco.languages.CompletionItemKind.Method, insertText: 'Distinct()', detail: 'IEnumerable<DataRow>', documentation: 'Get distinct elements', range: range },
+              { label: 'CopyToDataTable', kind: monaco.languages.CompletionItemKind.Method, insertText: 'CopyToDataTable()', detail: 'DataTable', documentation: 'Convert back to DataTable', range: range }
+            );
+          }
+          // General suggestions
+          else {
+            suggestions.push(
+              { label: 'data', kind: monaco.languages.CompletionItemKind.Variable, insertText: 'data', detail: 'DataTable', documentation: 'Current DataTable', range: range },
+              { label: 'row', kind: monaco.languages.CompletionItemKind.Variable, insertText: 'row', detail: 'DataRow', documentation: 'Current DataRow', range: range },
+              { label: 'var', kind: monaco.languages.CompletionItemKind.Keyword, insertText: 'var ${1:name} = ${2:value};', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, detail: 'keyword', documentation: 'Variable declaration', range: range },
+              { label: 'foreach', kind: monaco.languages.CompletionItemKind.Snippet, insertText: 'foreach (var ${1:item} in ${2:collection})\n{\n\t${3}\n}', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, detail: 'snippet', documentation: 'Foreach loop', range: range },
+              { label: 'if', kind: monaco.languages.CompletionItemKind.Snippet, insertText: 'if (${1:condition})\n{\n\t${2}\n}', insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, detail: 'snippet', documentation: 'If statement', range: range }
+            );
+          }
 
-                    return { suggestions: suggestions };
-                }
-            });
-
-            // Criar editor com tema VS Dark
-            editor = monaco.editor.create(document.getElementById('container'), {
-                value: '// Write your C# transformation code here\n// Available variable: data (DataTable)\n\n',
-                language: 'csharp',
-                theme: 'vs-dark',
-                fontSize: 15,
-                fontFamily: 'Cascadia Code, Consolas, Courier New, monospace',
-                automaticLayout: true,
-                minimap: { enabled: true },
-                scrollBeyondLastLine: false,
-                lineNumbers: 'on',
-                renderWhitespace: 'none',
-                tabSize: 2,
-                insertSpaces: true,
-                wordWrap: 'off',
-                contextmenu: true,
-                quickSuggestions: true,
-                suggestOnTriggerCharacters: true,
-                acceptSuggestionOnEnter: 'on',
-                snippetSuggestions: 'top',
-                parameterHints: { enabled: true },
-                formatOnPaste: true,
-                formatOnType: true,
-                bracketPairColorization: { enabled: true },
-                guides: {
-                    bracketPairs: true,
-                    indentation: true
-                }
-            });
-
-            // Notificar WPF quando o conteúdo mudar
-            editor.onDidChangeModelContent(function() {
-                if (!isUpdatingFromWPF && window.chrome && window.chrome.webview) {
-                    const content = editor.getValue();
-                    window.chrome.webview.postMessage({
-                        type: 'contentChanged',
-                        content: content
-                    });
-                }
-            });
-
-            // F5 para executar
-            editor.addCommand(monaco.KeyCode.F5, function() {
-                if (window.chrome && window.chrome.webview) {
-                    window.chrome.webview.postMessage({ type: 'execute' });
-                }
-            });
-
-            // F7 para validar
-            editor.addCommand(monaco.KeyCode.F7, function() {
-                if (window.chrome && window.chrome.webview) {
-                    window.chrome.webview.postMessage({ type: 'validate' });
-                }
-            });
-
-            // Ctrl+S para salvar
-            editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, function() {
-                if (window.chrome && window.chrome.webview) {
-                    window.chrome.webview.postMessage({ type: 'save' });
-                }
-            });
-
-            // Notificar WPF que o editor está pronto
-            if (window.chrome && window.chrome.webview) {
-                window.chrome.webview.postMessage({ type: 'ready' });
-            }
-        });
-
-        // Funções chamadas pelo WPF
-        function setContent(text) {
-            if (editor) {
-                isUpdatingFromWPF = true;
-                editor.setValue(text || '');
-                isUpdatingFromWPF = false;
-            }
+          return { suggestions: suggestions };
         }
+      });
 
-        function getContent() {
-            return editor ? editor.getValue() : '';
+      // Criar editor com tema VS Dark
+      editor = monaco.editor.create(document.getElementById('container'), {
+        value: '// Write your C# transformation code here\n// Available variable: data (DataTable)\n\n',
+        language: 'csharp',
+        theme: 'vs-dark',
+        fontSize: 15,
+        
+        fontFamily: 'Cascadia Code, Consolas, Courier New, monospace',
+        automaticLayout: true,
+        minimap: { enabled: false },
+        scrollBeyondLastLine: false,
+        lineNumbers: 'on',
+        cursorBlinking: 'solid',
+        cursorSmoothCaretAnimation: 'on',
+        renderWhitespace: 'none',
+        tabSize: 2, 
+        verticalScrollbarSize: 5,
+        horizontalScrollbarSize: 5,
+        fontLigatures: true,
+        insertSpaces: true,
+        wordWrap: 'off',
+        contextmenu: true,
+        quickSuggestions: true,
+        suggestOnTriggerCharacters: true,
+        acceptSuggestionOnEnter: 'on',
+        snippetSuggestions: 'top',
+        parameterHints: { enabled: true },
+        formatOnPaste: true,
+        formatOnType: true,
+        bracketPairColorization: { enabled: true },
+        guides: {
+          bracketPairs: true,
+          indentation: true
         }
+      });
 
-        function setTheme(themeName) {
-            if (editor) {
-                monaco.editor.setTheme(themeName);
-            }
+      // Notificar WPF quando o conteúdo mudar
+      editor.onDidChangeModelContent(function () {
+        if (!isUpdatingFromWPF && window.chrome && window.chrome.webview) {
+          const content = editor.getValue();
+          window.chrome.webview.postMessage({
+            type: 'contentChanged',
+            content: content
+          });
         }
+      });
 
-        function formatCode() {
-            if (editor) {
-                editor.getAction('editor.action.formatDocument').run();
-            }
+      // F5 para executar
+      editor.addCommand(monaco.KeyCode.F5, function () {
+        if (window.chrome && window.chrome.webview) {
+          window.chrome.webview.postMessage({ type: 'execute' });
         }
+      });
 
-        function focus() {
-            if (editor) {
-                editor.focus();
-            }
+      // F7 para validar
+      editor.addCommand(monaco.KeyCode.F7, function () {
+        if (window.chrome && window.chrome.webview) {
+          window.chrome.webview.postMessage({ type: 'validate' });
         }
+      });
 
-        function setReadOnly(readOnly) {
-            if (editor) {
-                editor.updateOptions({ readOnly: readOnly });
-            }
+      // Ctrl+S para salvar
+      editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, function () {
+        if (window.chrome && window.chrome.webview) {
+          window.chrome.webview.postMessage({ type: 'save' });
         }
-    </script>
+      });
+
+      // Notificar WPF que o editor está pronto
+      if (window.chrome && window.chrome.webview) {
+        window.chrome.webview.postMessage({ type: 'ready' });
+      }
+    });
+
+    // Funções chamadas pelo WPF
+    function setContent(text) {
+      if (editor) {
+        isUpdatingFromWPF = true;
+        editor.setValue(text || '');
+        isUpdatingFromWPF = false;
+      }
+    }
+
+    function getContent() {
+      return editor ? editor.getValue() : '';
+    }
+
+    function setTheme(themeName) {
+      if (editor) {
+        monaco.editor.setTheme(themeName);
+      }
+    }
+
+    function formatCode() {
+      if (editor) {
+        editor.getAction('editor.action.formatDocument').run();
+      }
+    }
+
+    function focus() {
+      if (editor) {
+        editor.focus();
+      }
+    }
+
+    function setReadOnly(readOnly) {
+      if (editor) {
+        editor.updateOptions({ readOnly: readOnly });
+      }
+    }
+  </script>
 </body>
 </html>

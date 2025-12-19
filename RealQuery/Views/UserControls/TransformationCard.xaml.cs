@@ -1,28 +1,44 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
 using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
+using RealQuery.Core.Models;
 
-namespace RealQuery.Views.UserControls
+namespace RealQuery.Views.UserControls;
+
+/// <summary>
+/// Card compacto (1 linha) para exibir um transformation step
+/// </summary>
+public partial class TransformationCard : UserControl
 {
-  /// <summary>
-  /// Interaction logic for TransformationCard.xaml
-  /// </summary>
-  public partial class TransformationCard : UserControl
+  #region Events
+
+  public event EventHandler<TransformationStep>? StepClicked;
+  public event EventHandler<TransformationStep>? DeleteRequested;
+
+  #endregion
+
+  public TransformationCard()
   {
-    public TransformationCard()
+    InitializeComponent();
+    MouseLeftButtonUp += OnCardClick;
+  }
+
+  private void OnCardClick(object sender, MouseButtonEventArgs e)
+  {
+    if (DataContext is TransformationStep step)
     {
-      InitializeComponent();
+      StepClicked?.Invoke(this, step);
+    }
+  }
+
+  protected override void OnKeyDown(KeyEventArgs e)
+  {
+    base.OnKeyDown(e);
+
+    if (e.Key == Key.Delete && DataContext is TransformationStep step)
+    {
+      DeleteRequested?.Invoke(this, step);
+      e.Handled = true;
     }
   }
 }

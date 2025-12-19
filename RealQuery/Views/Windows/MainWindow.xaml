@@ -95,73 +95,17 @@
       <!--  Left Panel: Steps List  -->
       <Border
         Grid.Column="0"
+        Padding="0"
+        BorderThickness="1,0,1,0"
         CornerRadius="0"
         Effect="{StaticResource EffectShadow2}"
         Style="{StaticResource BorderRegion}">
-        <DockPanel>
-          <hc:UniformSpacingPanel
-            Margin="10"
-            DockPanel.Dock="Top"
-            Spacing="10">
-            <iconPacks:PackIconPhosphorIcons
-              Width="24"
-              Height="24"
-              Kind="ClipboardTextFill" />
-            <TextBlock Style="{StaticResource TextBlockTitle}" Text="Transformation Steps" />
-            <Button
-              Command="{Binding ClearStepsCommand}"
-              Content="Clear All"
-              Style="{StaticResource ButtonDanger}" />
-          </hc:UniformSpacingPanel>
-
-          <ListBox
-            Margin="10"
-            ItemsSource="{Binding TransformationSteps}"
-            SelectedItem="{Binding SelectedStep}">
-            <ListBox.ItemTemplate>
-              <DataTemplate>
-                <hc:Card Margin="0,2">
-                  <StackPanel Margin="8">
-                    <StackPanel Orientation="Horizontal">
-                      <TextBlock FontWeight="Bold" Text="{Binding StepNumber, StringFormat='{}{0}. '}" />
-                      <TextBlock FontWeight="Bold" Text="{Binding Title}" />
-                      <TextBlock
-                        Margin="8,0,0,0"
-                        FontSize="14"
-                        Text="{Binding StatusIcon}" />
-                    </StackPanel>
-                    <TextBlock
-                      Margin="0,4,0,0"
-                      FontSize="11"
-                      Foreground="Gray"
-                      Text="{Binding Description}"
-                      TextWrapping="Wrap" />
-                    <StackPanel Margin="0,4,0,0" Orientation="Horizontal">
-                      <TextBlock
-                        FontSize="10"
-                        Foreground="Gray"
-                        Text="{Binding ExecutionTime, Converter={StaticResource TimeSpanToStringConverter}, StringFormat='Time: {0}'}"
-                        Visibility="{Binding ExecutionTime, Converter={StaticResource ObjectToVisibilityConverter}}" />
-                      <TextBlock
-                        Margin="15,0,0,0"
-                        FontSize="10"
-                        Foreground="Gray"
-                        Text="{Binding OutputRowCount, StringFormat='Rows: {0:N0}'}"
-                        Visibility="{Binding OutputRowCount, Converter={StaticResource ObjectToVisibilityConverter}}" />
-                    </StackPanel>
-                    <TextBlock
-                      Margin="0,4,0,0"
-                      FontSize="10"
-                      Foreground="Red"
-                      Text="{Binding ErrorMessage}"
-                      TextWrapping="Wrap"
-                      Visibility="{Binding HasError, Converter={StaticResource Boolean2VisibilityConverter}}" />
-                  </StackPanel>
-                </hc:Card>
-              </DataTemplate>
-            </ListBox.ItemTemplate>
-          </ListBox>
-        </DockPanel>
+        <!--  Pipeline Canvas com TransformationCards  -->
+        <usercontrols:PipelineCanvas
+          x:Name="PipelineCanvas"
+          DataContext="{Binding}"
+          StepDeleted="PipelineCanvas_StepDeleted"
+          StepSelected="PipelineCanvas_StepSelected" />
       </Border>
 
       <!--  GridSplitter  -->
@@ -247,7 +191,7 @@
     </Grid>
 
     <!--  StatusBar  -->
-    <StatusBar Grid.Row="1">
+    <StatusBar Grid.Row="1" BorderThickness="1">
       <StatusBarItem>
         <StackPanel Orientation="Horizontal">
           <iconPacks:PackIconPhosphorIcons Foreground="{DynamicResource PrimaryBrush}" Kind="LightbulbBold" />
@@ -255,7 +199,7 @@
           <TextBlock Text="{Binding StatusMessage}" />
         </StackPanel>
       </StatusBarItem>
-      <Separator />
+      <Separator Margin="0" />
       <StatusBarItem>
         <StackPanel Orientation="Horizontal">
           <iconPacks:PackIconPhosphorIcons Foreground="{DynamicResource PrimaryBrush}" Kind="TableBold" />
@@ -267,7 +211,7 @@
           <TextBlock Text="{Binding ColumnCount, StringFormat='Columns: {0}'}" />
         </StackPanel>
       </StatusBarItem>
-      <Separator />
+      <Separator Margin="0" />
       <StatusBarItem>
         <StackPanel Orientation="Horizontal">
           <iconPacks:PackIconPhosphorIcons Foreground="{DynamicResource PrimaryBrush}" Kind="TimerBold" />

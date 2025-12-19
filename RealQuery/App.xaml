@@ -20,9 +20,13 @@
 
       <!--  Global Converters  -->
       <converters:InverseBooleanConverter x:Key="InverseBooleanConverter" />
+      <converters:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+      <converters:BooleanToVisibilityConverter x:Key="Boolean2VisibilityConverter" />
       <converters:ObjectToVisibilityConverter x:Key="ObjectToVisibilityConverter" />
+      <converters:ObjectToVisibilityConverter x:Key="Object2VisibilityConverter" />
       <converters:TimeSpanToStringConverter x:Key="TimeSpanToStringConverter" />
       <converters:StepStatusToColorConverter x:Key="StepStatusToColorConverter" />
+      <converters:Int2VisibilityReConverter x:Key="Int2VisibilityReConverter" />
 
       <!--  HandyControl Built-in Converters aliases  -->
       <converters:InverseBooleanConverter x:Key="Boolean2BooleanReConverter" />
