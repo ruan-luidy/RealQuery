@@ -9,6 +9,7 @@
   xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
   d:DesignHeight="450"
   d:DesignWidth="800"
+  Foreground="{DynamicResource PrimaryTextBrush}"
   mc:Ignorable="d">
   <Grid>
     <Grid.RowDefinitions>
@@ -124,11 +125,12 @@
             Margin="0,0,5,0"
             VerticalAlignment="Center"
             Fill="{DynamicResource SuccessBrush}" />
+          <iconPacks:PackIconPhosphorIcons VerticalAlignment="Center" Kind="Hourglass" />
           <TextBlock
             x:Name="StatusText"
             VerticalAlignment="Center"
             FontSize="11"
-            Text="⏳ Loading Monaco..." />
+            Text="Loading Monaco..." />
         </StackPanel>
       </hc:UniformSpacingPanel>
     </Border>
