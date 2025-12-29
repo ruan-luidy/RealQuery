@@ -26,6 +26,8 @@
       <converters:TimeSpanToStringConverter x:Key="TimeSpanToStringConverter" />
       <converters:StepStatusToColorConverter x:Key="StepStatusToColorConverter" />
       <converters:Int2VisibilityReConverter x:Key="Int2VisibilityReConverter" />
+      <converters:EnumToVisibilityConverter x:Key="EnumToVisibilityConverter" />
+      <converters:String2VisibilityConverter x:Key="String2VisibilityConverter" />
 
       <!--  HandyControl Built-in Converters aliases  -->
       <converters:InverseBooleanConverter x:Key="Boolean2BooleanReConverter" />

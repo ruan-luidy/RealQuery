@@ -1,6 +1,7 @@
 ﻿using System.Data;
 using System.Diagnostics;
 using System.Windows;
+using Microsoft.Data.Sqlite;
 using RealQuery.Core.Models;
 using RealQuery.Core.Services;
 
@@ -113,6 +114,79 @@ public partial class MainViewModel : ObservableObject
     {
       ShowError($"Import error:\n{ex.Message}");
       StatusMessage = "Import failed";
+    }
+    finally
+    {
+      IsProcessing = false;
+    }
+  }
+
+  [RelayCommand]
+  private async Task ImportFromDatabaseAsync()
+  {
+    try
+    {
+      IsProcessing = true;
+      StatusMessage = "Opening database connection dialog...";
+
+      // Show database connection dialog
+      var viewModel = RealQuery.Views.Dialogs.DatabaseConnectionDialog.ShowDialog(System.Windows.Application.Current.MainWindow);
+
+      if (viewModel == null || viewModel.ConnectionInfo == null)
+      {
+        StatusMessage = "Database import canceled";
+        return;
+      }
+
+      StatusMessage = "Importing data from database...";
+
+      var connectionInfo = viewModel.ConnectionInfo;
+      var stopwatch = Stopwatch.StartNew();
+      DataTable data;
+
+      if (connectionInfo.DatabaseType == DatabaseType.SqlServer)
+      {
+        var sqlServerService = new SqlServerDataService();
+        data = await sqlServerService.ImportFromQueryAsync(
+          connectionInfo.ConnectionString,
+          connectionInfo.Query
+        );
+      }
+      else // SQLite
+      {
+        var sqliteService = new SqliteDataService();
+
+        // If query is default or empty, import from first table
+        if (string.IsNullOrWhiteSpace(connectionInfo.Query) || connectionInfo.Query == "SELECT * FROM ")
+        {
+          data = await sqliteService.ImportAsync(connectionInfo.FilePath);
+        }
+        else
+        {
+          // Use direct query execution
+          data = await ExecuteSqliteQueryAsync(connectionInfo.FilePath, connectionInfo.Query);
+        }
+      }
+
+      stopwatch.Stop();
+
+      CurrentData = data;
+      UpdateDataInfo(CurrentData);
+
+      var step = TransformationStep.CreateImportStep(
+        connectionInfo.Name,
+        CurrentData.Rows.Count
+      );
+      step.StepNumber = TransformationSteps.Count + 1;
+      step.ExecutionTime = stopwatch.Elapsed;
+
+      TransformationSteps.Add(step);
+      StatusMessage = $"Database import completed: {CurrentData.Rows.Count:N0} rows loaded";
+    }
+    catch (Exception ex)
+    {
+      ShowError($"Database import error:\n{ex.Message}");
+      StatusMessage = "Database import failed";
     }
     finally
     {
@@ -457,6 +531,41 @@ public partial class MainViewModel : ObservableObject
     TransformationSteps.Add(sampleStep);
 
     StatusMessage = "Sample data loaded - ready to transform!";
+  }
+
+  private async Task<DataTable> ExecuteSqliteQueryAsync(string filePath, string query)
+  {
+    var connectionString = $"Data Source={filePath}";
+    var dataTable = new DataTable();
+
+    using var connection = new SqliteConnection(connectionString);
+    await connection.OpenAsync();
+
+    using var command = connection.CreateCommand();
+    command.CommandText = query;
+
+    using var reader = await command.ExecuteReaderAsync();
+
+    // Create DataTable schema
+    for (int i = 0; i < reader.FieldCount; i++)
+    {
+      var columnName = reader.GetName(i);
+      var columnType = reader.GetFieldType(i);
+      dataTable.Columns.Add(columnName, columnType);
+    }
+
+    // Read data
+    while (await reader.ReadAsync())
+    {
+      var row = dataTable.NewRow();
+      for (int i = 0; i < reader.FieldCount; i++)
+      {
+        row[i] = reader.IsDBNull(i) ? DBNull.Value : reader.GetValue(i);
+      }
+      dataTable.Rows.Add(row);
+    }
+
+    return dataTable;
   }
 
   private void ShowError(string message)

@@ -1,0 +1,179 @@
+<hc:Window
+  x:Class="RealQuery.Views.Dialogs.DatabaseConnectionDialog"
+  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+  xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+  xmlns:hc="https://handyorg.github.io/handycontrol"
+  xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
+  xmlns:local="clr-namespace:RealQuery.Views.Dialogs"
+  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+  xmlns:models="clr-namespace:RealQuery.Core.Models"
+  Title="Database Connection"
+  Width="600"
+  Height="550"
+  MinWidth="500"
+  MinHeight="500"
+  ResizeMode="CanResize"
+  WindowStartupLocation="CenterOwner"
+  mc:Ignorable="d">
+
+  <Grid Margin="20">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" />
+      <RowDefinition Height="Auto" />
+    </Grid.RowDefinitions>
+
+    <GroupBox Grid.Row="0" Header="Database Type" Margin="0,0,0,15">
+      <ComboBox
+        x:Name="DatabaseTypeComboBox"
+        Height="35"
+        SelectedValue="{Binding SelectedDatabaseType}"
+        SelectedValuePath="Tag">
+        <ComboBoxItem Content="SQL Server" IsSelected="True" Tag="{x:Static models:DatabaseType.SqlServer}" />
+        <ComboBoxItem Content="SQLite" Tag="{x:Static models:DatabaseType.Sqlite}" />
+      </ComboBox>
+    </GroupBox>
+
+    <GroupBox Grid.Row="1" Header="Connection Settings" Margin="0,0,0,15">
+      <StackPanel>
+        <StackPanel Visibility="{Binding SelectedDatabaseType, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter={x:Static models:DatabaseType.SqlServer}}">
+          <TextBlock Text="Server:" Margin="0,5,0,5" />
+          <TextBox
+            Height="35"
+            Margin="0,0,0,10"
+            Text="{Binding Server, UpdateSourceTrigger=PropertyChanged}" />
+
+          <TextBlock Text="Database:" Margin="0,5,0,5" />
+          <TextBox
+            Height="35"
+            Margin="0,0,0,10"
+            Text="{Binding Database, UpdateSourceTrigger=PropertyChanged}" />
+
+          <TextBlock Text="Username (leave empty for Windows Authentication):" Margin="0,5,0,5" />
+          <TextBox
+            Height="35"
+            Margin="0,0,0,10"
+            Text="{Binding Username, UpdateSourceTrigger=PropertyChanged}" />
+
+          <TextBlock Text="Password:" Margin="0,5,0,5" />
+          <PasswordBox
+            x:Name="PasswordBox"
+            Height="35"
+            Margin="0,0,0,10"
+            PasswordChanged="PasswordBox_PasswordChanged" />
+        </StackPanel>
+
+        <StackPanel Visibility="{Binding SelectedDatabaseType, Converter={StaticResource EnumToVisibilityConverter}, ConverterParameter={x:Static models:DatabaseType.Sqlite}}">
+          <TextBlock Text="Database File:" Margin="0,5,0,5" />
+          <Grid Margin="0,0,0,10">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <TextBox
+              Grid.Column="0"
+              Height="35"
+              Margin="0,0,10,0"
+              IsReadOnly="True"
+              Text="{Binding SqliteFilePath}" />
+
+            <Button
+              Grid.Column="1"
+              Width="100"
+              Height="35"
+              Command="{Binding BrowseSqliteFileCommand}">
+              <StackPanel Orientation="Horizontal">
+                <iconPacks:PackIconPhosphorIcons
+                  Width="16"
+                  Height="16"
+                  Margin="0,0,5,0"
+                  Kind="FolderOpenFill" />
+                <TextBlock Text="Browse..." />
+              </StackPanel>
+            </Button>
+          </Grid>
+        </StackPanel>
+      </StackPanel>
+    </GroupBox>
+
+    <GroupBox Grid.Row="2" Header="SQL Query" Margin="0,0,0,15">
+      <TextBox
+        Height="100"
+        AcceptsReturn="True"
+        FontFamily="Consolas"
+        Text="{Binding Query, UpdateSourceTrigger=PropertyChanged}"
+        TextWrapping="Wrap"
+        VerticalScrollBarVisibility="Auto" />
+    </GroupBox>
+
+    <GroupBox Grid.Row="3" Header="Connection Test" Margin="0,0,0,15">
+      <Grid>
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <Button
+          Grid.Row="0"
+          Height="35"
+          Margin="0,0,0,10"
+          Command="{Binding TestConnectionCommand}"
+          IsEnabled="{Binding IsTestingConnection, Converter={StaticResource InverseBooleanConverter}}">
+          <StackPanel Orientation="Horizontal">
+            <iconPacks:PackIconPhosphorIcons
+              Width="16"
+              Height="16"
+              Margin="0,0,5,0"
+              Kind="PlugFill" />
+            <TextBlock Text="Test Connection" />
+          </StackPanel>
+        </Button>
+
+        <Border
+          Grid.Row="1"
+          Padding="10"
+          Background="{DynamicResource RegionBrush}"
+          BorderBrush="{DynamicResource BorderBrush}"
+          BorderThickness="1"
+          CornerRadius="4"
+          Visibility="{Binding ConnectionStatusMessage, Converter={StaticResource String2VisibilityConverter}}">
+          <TextBlock
+            Text="{Binding ConnectionStatusMessage}"
+            TextWrapping="Wrap"
+            FontWeight="SemiBold" />
+        </Border>
+      </Grid>
+    </GroupBox>
+
+    <Grid Grid.Row="5">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="Auto" />
+      </Grid.ColumnDefinitions>
+
+      <Button
+        Grid.Column="1"
+        Width="100"
+        Height="35"
+        Margin="0,0,10,0"
+        Command="{Binding ConfirmConnectionCommand}"
+        Content="OK"
+        IsDefault="True"
+        Style="{StaticResource ButtonPrimary}" />
+
+      <Button
+        Grid.Column="2"
+        Width="100"
+        Height="35"
+        Command="{Binding CancelCommand}"
+        Content="Cancel"
+        IsCancel="True" />
+    </Grid>
+  </Grid>
+</hc:Window>

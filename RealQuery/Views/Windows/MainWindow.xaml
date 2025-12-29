@@ -28,14 +28,24 @@
           Margin="5,0"
           Command="{Binding ImportDataCommand}"
           IsEnabled="{Binding IsProcessing, Converter={StaticResource InverseBooleanConverter}}"
-          Style="{StaticResource IconButton}">
+          Style="{StaticResource IconButton}"
+          ToolTip="Import from file">
           <iconPacks:PackIconPhosphorIcons Kind="DownloadSimpleFill" />
+        </Button>
+        <Button
+          Margin="5,0"
+          Command="{Binding ImportFromDatabaseCommand}"
+          IsEnabled="{Binding IsProcessing, Converter={StaticResource InverseBooleanConverter}}"
+          Style="{StaticResource IconButton}"
+          ToolTip="Import from database">
+          <iconPacks:PackIconPhosphorIcons Kind="DatabaseFill" />
         </Button>
         <Button
           Margin="5,0"
           Command="{Binding ExportDataCommand}"
           IsEnabled="{Binding IsProcessing, Converter={StaticResource InverseBooleanConverter}}"
-          Style="{StaticResource IconButton}">
+          Style="{StaticResource IconButton}"
+          ToolTip="Export to file">
           <iconPacks:PackIconPhosphorIcons Kind="UploadSimpleFill" />
         </Button>
         <Separator />
