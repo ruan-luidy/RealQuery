@@ -12,8 +12,7 @@ namespace RealQuery.ViewModels;
 public partial class MainViewModel : ObservableObject
 {
   #region Services
-  private readonly ExcelDataService _excelService;
-  private readonly CsvDataService _csvService;
+  private readonly DataServiceFactory _dataServiceFactory;
   private readonly FileDialogService _fileDialogService;
   private readonly CSharpTransformationEngine _transformationEngine;
   #endregion
@@ -402,8 +401,7 @@ public partial class MainViewModel : ObservableObject
 
   public MainViewModel()
   {
-    _excelService = new ExcelDataService();
-    _csvService = new CsvDataService();
+    _dataServiceFactory = new DataServiceFactory();
     _fileDialogService = new FileDialogService();
     _transformationEngine = new CSharpTransformationEngine();
 
@@ -416,13 +414,7 @@ public partial class MainViewModel : ObservableObject
 
   private IDataService GetDataServiceForFile(string filePath)
   {
-    if (_excelService.CanHandle(filePath))
-      return _excelService;
-
-    if (_csvService.CanHandle(filePath))
-      return _csvService;
-
-    throw new NotSupportedException($"File format not supported: {Path.GetExtension(filePath)}");
+    return _dataServiceFactory.GetDataService(filePath);
   }
 
   private void UpdateDataInfo(DataTable data)

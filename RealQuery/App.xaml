@@ -15,7 +15,6 @@
 
         <!--  Custom Resources  -->
         <ResourceDictionary Source="/Resources/Styles.xaml" />
-        <ResourceDictionary Source="/Resources/Icons.xaml" />
       </ResourceDictionary.MergedDictionaries>
 
       <!--  Global Converters  -->

@@ -19,7 +19,6 @@ global using CommunityToolkit.Mvvm.Input;
 
 // Data Processing
 global using Microsoft.Data.Analysis;
-global using IronXL;
 
 // Code Analysis
 global using Microsoft.CodeAnalysis;

@@ -1,9 +1,11 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.14.36301.6 d17.14
+# Visual Studio Version 18
+VisualStudioVersion = 18.1.11312.151 d18.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RealQuery", "RealQuery\RealQuery.csproj", "{4B77EBBC-BE68-490D-96BF-96F9EE49C75A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PipeFlow", "PipeFlow\PipeFlow.csproj", "{6F64058C-388C-85CB-44FD-D99F05CF77E7}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,6 +17,10 @@ Global
 		{4B77EBBC-BE68-490D-96BF-96F9EE49C75A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{4B77EBBC-BE68-490D-96BF-96F9EE49C75A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{4B77EBBC-BE68-490D-96BF-96F9EE49C75A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6F64058C-388C-85CB-44FD-D99F05CF77E7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6F64058C-388C-85CB-44FD-D99F05CF77E7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6F64058C-388C-85CB-44FD-D99F05CF77E7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6F64058C-388C-85CB-44FD-D99F05CF77E7}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

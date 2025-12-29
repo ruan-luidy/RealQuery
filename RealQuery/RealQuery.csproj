@@ -16,9 +16,6 @@
 
 	<ItemGroup>
 		<!-- Copy TrueBlue theme to output -->
-		<None Update="Resources\TrueBlue.xshd">
-			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-		</None>
 		<!-- Copy Monaco editor HTML to output -->
 		<None Update="Resources\Monaco\editor.html">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
@@ -34,13 +31,21 @@
 		<PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
 		<PackageReference Include="MahApps.Metro.IconPacks.PhosphorIcons" Version="6.2.1" />
 
-		<!-- Data Processing -->
-		<PackageReference Include="IronXL.Excel" Version="2025.7.15" />
+		<!-- Data Processing & ETL -->
+		<PackageReference Include="PipeFlowCore" Version="1.*" />
 		<PackageReference Include="Microsoft.Data.Analysis" Version="0.22.2" />
+
+		<!-- Database Connectivity -->
+		<PackageReference Include="System.Data.SqlClient" Version="4.8.6" />
+		<PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.0" />
 
 		<!-- Code Execution -->
 		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0" />
 		<PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" Version="4.14.0" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <ProjectReference Include="..\PipeFlow\PipeFlow.csproj" />
 	</ItemGroup>
 
 </Project>

@@ -67,10 +67,12 @@ public class FileDialogService
   /// </summary>
   public string GetDefaultImportFilter()
   {
-    return "Todos os formatos suportados|*.xlsx;*.xls;*.xlsm;*.csv;*.txt|" +
+    return "Todos os formatos|*.xlsx;*.xls;*.xlsm;*.csv;*.txt;*.json;*.jsonl;*.db;*.sqlite;*.sqlite3|" +
            "Arquivos Excel|*.xlsx;*.xls;*.xlsm|" +
            "Arquivos CSV|*.csv|" +
            "Arquivos de Texto|*.txt|" +
+           "Arquivos JSON|*.json;*.jsonl|" +
+           "Arquivos SQLite|*.db;*.sqlite;*.sqlite3|" +
            "Todos os arquivos|*.*";
   }
 
@@ -83,6 +85,9 @@ public class FileDialogService
            "Excel 97-2003|*.xls|" +
            "CSV (separado por vírgula)|*.csv|" +
            "Arquivo de Texto|*.txt|" +
+           "JSON|*.json|" +
+           "JSON Lines|*.jsonl|" +
+           "SQLite Database|*.db|" +
            "Todos os arquivos|*.*";
   }
 
